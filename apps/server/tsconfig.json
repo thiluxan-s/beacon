@@ -7,5 +7,5 @@
     "paths": { "@/*": ["./src/*"] },
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "drizzle.config.ts"]
+  "include": ["src/**/*.ts"]
 }
