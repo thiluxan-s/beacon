@@ -23,7 +23,8 @@ export async function ensureUserExists(): Promise<void> {
   const email = user.emailAddresses[0]?.emailAddress ?? '';
   try {
     await upsertUserOnServer({ clerkUserId: user.id, email });
-  } catch {
+  } catch (err) {
     // Non-fatal: the webhook is the primary path; log-and-continue keeps the page rendering.
+    console.error('[beacon-web] ensureUserExists upsert failed', err);
   }
 }
