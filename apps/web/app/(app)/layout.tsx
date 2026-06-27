@@ -1,13 +1,12 @@
-// Task 9 adds ensureUserExists() at the top of this component to upsert the
-// Clerk user into the local Postgres users table on first sign-in.
-
 import { UserButton } from "@clerk/nextjs";
+import { ensureUserExists } from "@/lib/ensure-user-exists";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await ensureUserExists();
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
       {/*
