@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Env — never commit secrets
+.env
+.env.local
+.env*.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Misc
+.turbo
+.vercel
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Claude Code local overrides + session data
+CLAUDE.local.md
+.claude/
+
+# Docker
+*.pid
+
+# Beacon-specific — backup artifacts during local testing
+backups/*.sql.gz
