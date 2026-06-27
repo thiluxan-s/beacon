@@ -48,7 +48,7 @@ These are the calls we made when the design comes under tension.
 **Working assumptions:**
 
 - **Neutrals:** Slate or Zinc, full range. Use real darks (`zinc-900`+) and real lights (`zinc-50`).
-- **Accent:** Deep blue, lower saturation than `blue-600`. Specific hex decided in Phase 1.
+- **Accent:** **DECIDED — graphite `#27272a` (zinc-800).** Chosen over blue because the status palette (green/amber/red) already carries all the color meaning; a second hue would compete with signal. Monochrome chrome keeps attention on status, not chrome.
 - **Status colors:**
   - `up` / healthy: A muted green — not kelly green. Think `#3F7D58` not `#22C55E`.
   - `degraded`: A calibrated amber, leaning more golden than orange.
@@ -58,7 +58,7 @@ These are the calls we made when the design comes under tension.
   - Primary: very light gray or off-white (`zinc-50` or `#FAFAFA`).
   - Dark mode candidate (post-v1): `zinc-950` background.
 
-Finalize the accent and status palette before the end of Phase 1.
+**DECIDED (Phase 1):** Brand accent = graphite `#27272a`. Status palette locked — see color tokens above. Both are registered as `--color-brand` / `--color-status-*` in `apps/web/app/globals.css`. (`--color-brand` not `--color-accent` — shadcn's `@theme inline` already maps `--color-accent` to a light hover-gray; overriding it would break ghost/outline buttons.)
 
 ### Typography
 
@@ -92,7 +92,16 @@ Finalize the accent and status palette before the end of Phase 1.
 
 **Goal:** Briefly explain what Beacon does and link to the dashboard. The dashboard URL is for me; the landing page is for recruiters.
 
-> Decisions go here once Phase 6 builds it. Consider: this might be a single-page README-style explanation linking to the live dashboard. Doesn't need to be elaborate — the *dashboard itself* is the demo.
+**Decisions (Phase 1):**
+
+- **Layout:** Asymmetric split — left 52%: primary content; right 52%: ghost dashboard preview (absolute-positioned, decorative, `opacity-0.22`). Recruiter sees what the product looks like before reading a word.
+- **Status strip:** Fixed 3px horizontal bar at top, 4 segments in status colors (weighted up > degraded > down > paused). Product type is immediately legible.
+- **Background:** `zinc-50` + subtle radial dot grid (CSS only, 24px spacing). Appropriate for a systems tool; zero visual noise.
+- **Typography:** Eyebrow in Geist Mono, uppercase, `tracking-[0.2em]`, `text-[10px]`. H1 weight 600, `tracking-[-0.025em]`, tight leading. Body at `zinc-500`.
+- **Ghost dashboard:** Static rows with real service names, status dots, uptime %, latency. Actual product data will replace this in production. `up` dots pulse via CSS animation — the page feels alive without JS.
+- **Stack tags:** Mono, uppercase, `text-[10px]`, `zinc-400` — tech story told without paragraphs.
+- **Footer:** Pulsing green dot + mono "Self-hosted · thiluxan.dev" — grounds the product without a footer section.
+- **CTA:** Graphite `#27272a` rounded-md button. Ghost text link for system status with a `→` arrow. No icons, no decorations.
 
 ### Sign-in page
 
@@ -151,10 +160,11 @@ Finalize the accent and status palette before the end of Phase 1.
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
-> Entries go here as the project develops. Examples of what to log:
->
-> - "Status colors: `up` = `#3F7D58`, `degraded` = `#C18A1F`, `down` = `#B23A48`, `paused` = `#71717A`. Reason: dialed-down saturation reads as 'considered' rather than 'alarm-going-off,' which is the right tone for a dashboard I'll look at all day."
-> - "Status dots are 6px on the main dashboard list, 10px on the service detail header. Reason: scale to the surface — readable at a glance on the list, prominent on the detail page."
-> - "WebSocket connection indicator lives in the bottom-right corner, not the top. Reason: top-right corner is already crowded with the user menu; bottom-right is the spatial convention for status indicators (see Slack, Linear, VS Code)."
-> - "Service list uses a dense table layout, not cards. Reason: tabular alignment makes status, uptime %, and response time visually comparable across rows — cards force the eye to refocus per item."
+- **Landing page uses an asymmetric split with a ghost dashboard preview (right panel, ~22% opacity).** Reason: the product concept lands visually before any text is read — a recruiter sees service rows and status dots in their peripheral vision, which sets context instantly.
+- **Status strip as a 3px fixed top bar with 4 weighted segments.** Reason: the most compressed possible encoding of "this product has four service states" — it reads as a status bar for the status-bar product.
+- **Landing page background uses a CSS radial dot grid.** Reason: connects to the "graph paper / systems engineering" aesthetic; zero performance cost (pure CSS); subtler than a border grid.
+- **CTA button uses `bg-brand` utility (resolves to `--color-brand: #27272a`).** Reason: shadcn's `--color-accent` maps to a light hover color in its component system; the brand token is now `--color-brand` to avoid the collision. `bg-brand` is generated by Tailwind v4 from the `@theme` block.
+- **Stack tech tags (Node.js + Hono / WebSockets / DigitalOcean / Caddy) in mono, uppercase, zinc-400.** Reason: tells the tech story without a paragraph; hiring managers scanning for stack recognition catch it in two seconds.
+- **Brand accent = graphite `#27272a` (zinc-800), registered as `--color-brand`, not blue.** Reason: the status palette (green/amber/red) already carries all the hue-based meaning in this UI; a blue accent would compete with status signals. Named `--color-brand` (not `--color-accent`) to avoid overriding shadcn's light-hover accent mapping.
+- **Status colors: `up` = `#3F7D58`, `degraded` = `#C18A1F`, `down` = `#B23A48`, `paused` = `#71717A`.** Reason: dialed-down saturation reads as 'considered' rather than 'alarm-going-off,' which is the right tone for a dashboard I'll look at all day.
 
