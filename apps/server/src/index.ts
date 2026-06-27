@@ -9,6 +9,5 @@ app.use('*', cors({ origin: env.WEB_ORIGIN, credentials: true }));
 app.route('/', createRouter());
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-  // eslint-disable-next-line no-console
   console.log(`[beacon-server] listening on http://localhost:${info.port}`);
 });
