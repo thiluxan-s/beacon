@@ -1,0 +1,24 @@
+import { describe, expect, it } from 'vitest';
+import { loadEnv } from './env';
+
+const base = {
+  DATABASE_URL: 'postgresql://beacon:beacon@localhost:5432/beacon',
+  WEB_ORIGIN: 'http://localhost:3000',
+  INTERNAL_API_SECRET: 'a-32-char-minimum-secret-value-1234',
+};
+
+describe('loadEnv', () => {
+  it('applies defaults for PORT and LOG_LEVEL', () => {
+    const env = loadEnv(base);
+    expect(env.PORT).toBe(3001);
+    expect(env.LOG_LEVEL).toBe('info');
+  });
+
+  it('throws when DATABASE_URL is missing', () => {
+    expect(() => loadEnv({ ...base, DATABASE_URL: undefined })).toThrow();
+  });
+
+  it('throws when INTERNAL_API_SECRET is too short', () => {
+    expect(() => loadEnv({ ...base, INTERNAL_API_SECRET: 'short' })).toThrow();
+  });
+});
