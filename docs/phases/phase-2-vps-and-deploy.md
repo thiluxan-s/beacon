@@ -31,6 +31,11 @@
 - Test the database restore procedure before considering this phase done. Restore a backup to a test database, verify data integrity, document the date in `INFRASTRUCTURE.md`.
 - This phase's commits will mostly be in `infrastructure/` and `.github/workflows/`. App code changes should be minimal — that's a sign the architecture is right.
 
+### Carry-forward from the Phase 1 final review
+
+- **Lock down `/internal/*` at the reverse proxy.** `POST /internal/users/upsert` is guarded only by the `INTERNAL_API_SECRET` shared secret (a plain `!==` comparison — fine on a private localhost network, not constant-time). Once Caddy sits in front of the server, this path must NOT be publicly reachable: block `/internal/*` at Caddy, or bind it to an internal-only interface / Docker network. Make this a deliberate decision, not an oversight.
+- **Add an internal web→server URL.** The web server process calls the API via `NEXT_PUBLIC_API_URL` (`api-client.ts`, `ensure-user-exists.ts`). In production that would round-trip out through the public URL/Caddy. Introduce a separate `INTERNAL_API_URL` (Docker service name / internal hostname) for server-to-server traffic and use it in those two call sites; keep `NEXT_PUBLIC_API_URL` for anything that must run in the browser.
+
 ---
 
 (More detail to be added before starting this phase.)
