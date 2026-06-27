@@ -7,8 +7,9 @@ Copy-paste this into the first Claude Code session in the empty repo.
 We're starting a new project called **Beacon**. It's a self-hosted, real-time monitoring dashboard for services I run. Tagline: "Monitor anything you ship." Architecture is platform-agnostic — services are monitored at the HTTP layer with optional per-platform integrations (Vercel and GitHub in v1; Railway, Fly, AWS, custom webhooks designed-for-but-not-built).
 
 This is my third portfolio project. The first two:
+
 - **Wayfare** (https://github.com/thiluxan-s/TravelApp) — travel "second brain" with one-shot AI extraction.
-- **Investor Thesis** — agentic-AI thesis tracker.
+- **Investor Thesis** (https://github.com/thiluxan-s/investor-thesis) — agentic-AI thesis tracker.
 
 Both are on Next.js + Vercel + serverless. Beacon is deliberately **different**: long-running Node/Bun server (Hono), WebSockets for real-time, self-hosted on a DigitalOcean Droplet with Docker Compose, Caddy reverse proxy, real deploy pipeline via GitHub Actions. The contrast is the point — I'm demonstrating systems engineering, not another serverless AI project. **No AI in v1.**
 
@@ -53,7 +54,8 @@ This forces re-anchoring every session.
 ## Reference: Wayfare and Investor Thesis
 
 When questions come up about "how did we handle X before?", references:
+
 - Wayfare: https://github.com/thiluxan-s/TravelApp
-- Investor Thesis: <link TBD>
+- Investor Thesis: https://github.com/thiluxan-s/investor-thesis
 
 Conventions, file structure, and workflow should feel like a coherent successor to those projects — unless this project's docs explicitly differ (which they do, deliberately, in several places — see "Tech stack" in `CLAUDE.md`).
