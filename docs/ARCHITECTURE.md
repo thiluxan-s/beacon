@@ -7,8 +7,8 @@
                                    │
                                    ▼
                        ┌────────────────────┐
-                       │     Cloudflare     │
-                       │   DNS + DDoS proxy │
+                       │    Namecheap DNS   │
+                       │  (no proxy; A only)│
                        └─────────┬──────────┘
                                  │
                                  ▼
