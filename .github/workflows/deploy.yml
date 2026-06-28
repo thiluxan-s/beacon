@@ -1,0 +1,95 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_WEB: ghcr.io/thiluxan-s/beacon-web
+  IMAGE_SERVER: ghcr.io/thiluxan-s/beacon-server
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: beacon
+          POSTGRES_PASSWORD: beacon
+          POSTGRES_DB: beacon
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U beacon -d beacon"
+          --health-interval 5s --health-timeout 5s --health-retries 5
+    env:
+      # The server's repository test is an integration test against Postgres, and
+      # migrate.ts validates the full server env schema at import — provide all three.
+      DATABASE_URL: postgresql://beacon:beacon@localhost:5432/beacon
+      WEB_ORIGIN: http://localhost:3000
+      INTERNAL_API_SECRET: test-internal-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run db:migrate -w @beacon/server # create the users table before tests
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_WEB }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.beacon.thiluxan.com
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+
+      - name: Build & push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_SERVER }}:${{ github.sha }}
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: thiluxan
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Pin the host key (SHA256 fingerprint) so the deploy hop can't be MITM'd.
+          fingerprint: ${{ secrets.SSH_HOST_FINGERPRINT }}
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            cd /opt/beacon
+            bash /opt/beacon/deploy/deploy.sh ${{ github.sha }}

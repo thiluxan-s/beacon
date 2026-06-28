@@ -1,0 +1,2 @@
+# Install to /etc/cron.d/beacon-backup (root-owned, 644). Phase 5 sets BEACON_BACKUP_REMOTE.
+0 3 * * * thiluxan /opt/beacon/scripts/backup.sh >> /var/log/beacon-backup.log 2>&1

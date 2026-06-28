@@ -12,7 +12,7 @@ Unlike Wayfare and Investor Thesis where infrastructure was "Vercel handles it,"
 
 - **Provider:** DigitalOcean
 - **Type:** Basic Droplet
-- **Size:** Decided in Phase 2 — likely 1 vCPU / 1GB RAM ($6/mo) to start; bump to 2GB ($12/mo) if memory tight after the WS layer and integrations are running.
+- **Size:** 1 vCPU / 2GB ($12/mo), chosen for WS/worker headroom.
 - **OS:** Ubuntu 24.04 LTS
 - **Region:** TOR1 (Toronto) — closest to me. Lower latency for me browsing the dashboard; close enough to common monitoring targets.
 - **Networking:** Public IPv4, IPv6 enabled.
@@ -38,18 +38,21 @@ The following is run on a fresh Droplet before any application code is deployed.
 
 The VPS holds runtime secrets in a single `.env` file at `/opt/beacon/.env` (owned by the deploy user, 600 permissions). This file is NEVER in the repo. Contents:
 
+The committed reference for this file is `infrastructure/.env.production.example` (placeholders only). As of Phase 2 the actual contents are:
+
 ```
-DATABASE_URL=postgresql://beacon:<password>@postgres:5432/beacon
-INTEGRATIONS_ENCRYPTION_KEY=<32-byte base64 key>
-CLERK_SECRET_KEY=<...>
-RESEND_API_KEY=<...>
-RESEND_FROM_EMAIL=alerts@beacon.<domain>
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<...>
-NEXT_PUBLIC_API_URL=https://api.beacon.<domain>
-NEXT_PUBLIC_WS_URL=wss://api.beacon.<domain>/ws
+POSTGRES_PASSWORD=changeme-generate-a-strong-password
+DATABASE_URL=postgresql://beacon:changeme-generate-a-strong-password@postgres:5432/beacon
+WEB_ORIGIN=https://beacon.thiluxan.com
+INTERNAL_API_SECRET=changeme-openssl-rand-base64-32-min-32-chars
+NEXT_PUBLIC_API_URL=https://api.beacon.thiluxan.com
+INTERNAL_API_URL=http://server:3001
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_or_test_xxx
+CLERK_SECRET_KEY=sk_live_or_test_xxx
+CLERK_WEBHOOK_SECRET=whsec_xxx
 ```
 
-The `INTEGRATIONS_ENCRYPTION_KEY` is generated once with `openssl rand -base64 32` and stored. Losing it means losing access to all encrypted integration credentials in the database — they'd need to be reconfigured. Document a rotation procedure in this file.
+The integration credentials key (`INTEGRATIONS_ENCRYPTION_KEY`), Resend email vars (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`), and the WebSocket URL (`NEXT_PUBLIC_WS_URL`) arrive in later phases as those features land, and will be appended to this file then. `POSTGRES_PASSWORD` and `INTERNAL_API_SECRET` are each generated once with `openssl rand -base64 32`. When the integrations key is introduced, note that losing it means losing access to all encrypted integration credentials in the database — they'd need to be reconfigured — so document a rotation procedure here.
 
 ---
 
@@ -164,7 +167,7 @@ The deploy script lives at `infrastructure/deploy/deploy.sh`. CI calls it over S
 
 GitHub Actions secrets:
 - `SSH_PRIVATE_KEY` — deploy key for SSH access to VPS.
-- `SSH_KNOWN_HOSTS` — host fingerprint.
+- `SSH_HOST_FINGERPRINT` — host's SHA256 key fingerprint, pinned by the deploy workflow to prevent MITM.
 - `GHCR_TOKEN` — for pushing images (or use GITHUB_TOKEN).
 - Production environment variables are NOT in CI — they live on the VPS in `/opt/beacon/.env`.
 
@@ -234,7 +237,7 @@ gunzip -c /tmp/beacon-YYYY-MM-DD.sql.gz | docker compose exec -T postgres psql -
 
 Test this procedure at least once before considering Beacon "production." Document the date of the last verified restore here.
 
-> **Last verified restore:** TBD — verify in Phase 2.
+> **Last verified restore:** TBD — verify in Phase 5.
 
 ---
 
@@ -248,6 +251,20 @@ The dashboard cannot reliably alert on its own downtime — if the server is dow
 - Alerts: email to my personal address.
 
 If both UptimeRobot monitors go red, the dashboard is genuinely down and I need to SSH in.
+
+---
+
+## Runbook — first-time provisioning (Phase 2)
+
+1. Create the droplet (DigitalOcean → Ubuntu 24.04, $12/2GB, TOR1) with your SSH key.
+2. As root: `bash bootstrap-vps.sh "<your-ssh-public-key>"` (creates user `thiluxan`, hardens SSH, ufw, fail2ban, Docker, `/opt/beacon`).
+3. Copy `infrastructure/docker-compose.yml`, `infrastructure/Caddyfile`, and `infrastructure/deploy/deploy.sh` to `/opt/beacon/` (deploy/ keeps deploy.sh). Copy `infrastructure/scripts/` too.
+4. Create `/opt/beacon/.env` (chmod 600) from `infrastructure/.env.production.example` with real secrets: generate `POSTGRES_PASSWORD` and `INTERNAL_API_SECRET` (`openssl rand -base64 32`), paste production Clerk keys.
+5. Cloudflare: add A records `beacon` and `api.beacon` → droplet IP. Start **DNS-only (grey cloud)** so Caddy can issue Let's Encrypt certs. Once `https://beacon.thiluxan.com` serves a valid cert, switch to **proxied (orange) + SSL Full (strict)**. Verify WebSockets are allowed on the API host (Network tab).
+6. GitHub repo secrets: `SSH_PRIVATE_KEY` (deploy key for user `thiluxan`), `SSH_HOST` (droplet IP), `SSH_HOST_FINGERPRINT` (the host's SHA256 key fingerprint, pinned by the deploy workflow — generate with `ssh-keyscan -t ed25519 <ip> | ssh-keygen -lf - | cut -d ' ' -f2`, yields `SHA256:...`), `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+7. Clerk dashboard: add a production webhook → `https://beacon.thiluxan.com/api/clerk/webhook`, subscribe `user.created`/`user.updated`, copy the signing secret into `/opt/beacon/.env` as `CLERK_WEBHOOK_SECRET`.
+8. First deploy: push to `main` (or re-run the workflow). Watch GitHub Actions. **Note:** on the very first deploy Caddy is still obtaining Let's Encrypt certs, so `deploy.sh`'s HTTPS health checks can fail (and, with no previous version, the job reports failure) even though the stack came up — give it a minute and re-run the workflow once the cert is issued. On success, visit `https://beacon.thiluxan.com`, sign in, and confirm a row: `BEACON_VERSION=$(cat /opt/beacon/.deployed_version) docker compose exec postgres psql -U beacon -d beacon -c 'select clerk_user_id, email from users;'`.
+9. Tag the known-good deploy: `git tag -a v0.2.0 -m "First production deploy" && git push --tags`.
 
 ---
 
@@ -295,13 +312,13 @@ Track real monthly costs here so it's visible.
 
 | Item | Monthly | Notes |
 |------|---------|-------|
-| DigitalOcean Droplet | ~$6-12 | Depends on size chosen in Phase 2 |
+| DigitalOcean Droplet | $12 | 1 vCPU / 2GB, chosen for WS/worker headroom |
 | Cloudflare | $0 | Free tier |
 | Cloudflare R2 (backups) | $0 | Within free tier |
 | UptimeRobot | $0 | Free tier (50 monitors, 5min intervals) |
 | Domain | $0 | Already owned (`thiluxan.com`) |
 | Resend (alert emails) | $0 | Within free tier (3000/mo) |
-| **Total** | **~$10/mo** | |
+| **Total** | **~$16/mo** | |
 
 If costs change (e.g., bumping the Droplet size), update this table.
 

@@ -1,11 +1,13 @@
 import 'server-only';
 import { currentUser } from '@clerk/nextjs/server';
 
+import { serverApiBaseUrl } from './api-base';
+
 export async function upsertUserOnServer(input: {
   clerkUserId: string;
   email: string;
 }): Promise<void> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/internal/users/upsert`, {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/users/upsert`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

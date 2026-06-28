@@ -1,0 +1,59 @@
+name: beacon
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - server
+
+  web:
+    image: ghcr.io/thiluxan-s/beacon-web:${BEACON_VERSION}
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false # absent locally; present at /opt/beacon/.env on the VPS
+    expose:
+      - '3000'
+    depends_on:
+      - server
+
+  server:
+    image: ghcr.io/thiluxan-s/beacon-server:${BEACON_VERSION}
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false # absent locally; present at /opt/beacon/.env on the VPS
+    expose:
+      - '3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beacon
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: beacon
+    volumes:
+      - beacon_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U beacon -d beacon']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  caddy_data:
+  caddy_config:
+  beacon_postgres_data:

@@ -1,0 +1,21 @@
+beacon.thiluxan.com {
+	encode gzip zstd
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+	reverse_proxy web:3000
+}
+
+api.beacon.thiluxan.com {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+	# /internal/* is for in-network web->server calls only; never expose it publicly.
+	handle /internal/* {
+		respond 404
+	}
+	handle {
+		reverse_proxy server:3001
+	}
+}

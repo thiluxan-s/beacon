@@ -1,0 +1,27 @@
+# Local smoke test of the production images + wiring. Builds locally instead of
+# pulling from ghcr, publishes web/server to the host, and skips Caddy (auto-HTTPS
+# needs real domains). Caddyfile is validated separately in Task 4.
+name: beacon
+
+services:
+  caddy:
+    profiles: ['never'] # excluded from local smoke
+
+  web:
+    image: beacon-web:local
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+    ports:
+      - '3000:3000'
+
+  server:
+    image: beacon-server:local
+    build:
+      context: ..
+      dockerfile: apps/server/Dockerfile
+    ports:
+      - '3001:3001'

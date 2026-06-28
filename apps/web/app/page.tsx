@@ -139,7 +139,7 @@ export default function LandingPage() {
                 aria-hidden="true"
               />
               <span className="font-mono text-[10px] text-zinc-400">
-                Self-hosted · thiluxan.dev
+                Self-hosted · thiluxan.com
               </span>
             </div>
           </div>
