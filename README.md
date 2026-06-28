@@ -2,11 +2,13 @@
 
 A real-time monitoring dashboard for the services I run — self-hosted on my own VPS, at my own domain. Beacon watches anything with an HTTP endpoint (my deployed projects, my domains, future client work) and adds deeper insight where I've configured an integration. It's the systems-engineering counterpart to my two prior projects: where those are Next.js-on-Vercel serverless apps, Beacon is deliberately a long-running Node server, WebSockets, Postgres, and a real deploy pipeline on a box I own.
 
-> **Deliberately not serverless.** This project has real monthly infrastructure costs (~$10/mo: a DigitalOcean droplet + a domain; Cloudflare and UptimeRobot on free tiers). That's the point — it demonstrates the self-hosted, own-the-stack side of building, not the managed-platform side. The cost is a feature, not a flaw.
+> **Deliberately not serverless.** This project has real monthly infrastructure costs (~$16/mo: a DigitalOcean droplet + a domain; Cloudflare and UptimeRobot on free tiers). That's the point — it demonstrates the self-hosted, own-the-stack side of building, not the managed-platform side. The cost is a feature, not a flaw.
 
 ## Status
 
-**Phase 1 (local foundation) — complete.** This repo currently runs as a two-process local development system: a Next.js web app and a Hono API server talking to a Postgres database, with authentication wired up. No VPS, deploy pipeline, or monitoring yet — those are the next phases.
+**Phase 1 (local foundation) — complete.** This repo currently runs as a two-process local development system: a Next.js web app and a Hono API server talking to a Postgres database, with authentication wired up.
+
+**Phase 2 (production deploy) — deploy pipeline built; first live deploy pending provisioning.** The app is deployable to `https://beacon.thiluxan.com` via push-to-main: GitHub Actions builds images, pushes them to ghcr, and deploys them onto a DigitalOcean VPS (Caddy reverse proxy + Docker Compose). The pipeline and infra artifacts are committed; the VPS, DNS, secrets, and first live deploy are the human provisioning runbook in [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md), not yet executed. Real-time monitoring is still a later phase.
 
 ### What works today
 
