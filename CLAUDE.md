@@ -78,7 +78,7 @@ These are decided. Don't propose swaps without asking.
 - **Containerization:** Docker Compose for the app + Postgres + any sidecars.
 - **Deploy:** GitHub Actions → SSH-based rsync or `docker compose pull && up` strategy. No external deploy platform.
 - **Firewall:** ufw (only 22/80/443 open; SSH key auth only, no passwords).
-- **DNS:** Cloudflare (free tier, sits in front of the VPS).
+- **DNS:** Namecheap (where `thiluxan.com` is registered). Plain A records, **no proxy** in front of the VPS — Caddy terminates TLS directly. (The original plan named Cloudflare; Phase 2 shipped on Namecheap without the proxy layer. See `docs/INFRASTRUCTURE.md` → DNS configuration.)
 - **Monitoring of the monitor:** UptimeRobot free tier as the external watcher of Beacon itself. (Because the monitor can't reliably alert on its own downtime.)
 
 ### Deliberately not in the stack and not to be proposed

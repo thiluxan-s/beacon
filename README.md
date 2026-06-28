@@ -8,7 +8,7 @@ A real-time monitoring dashboard for the services I run — self-hosted on my ow
 
 **Phase 1 (local foundation) — complete.** This repo currently runs as a two-process local development system: a Next.js web app and a Hono API server talking to a Postgres database, with authentication wired up.
 
-**Phase 2 (production deploy) — deploy pipeline built; first live deploy pending provisioning.** The app is deployable to `https://beacon.thiluxan.com` via push-to-main: GitHub Actions builds images, pushes them to ghcr, and deploys them onto a DigitalOcean VPS (Caddy reverse proxy + Docker Compose). The pipeline and infra artifacts are committed; the VPS, DNS, secrets, and first live deploy are the human provisioning runbook in [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md), not yet executed. Real-time monitoring is still a later phase.
+**Phase 2 (production deploy) — live.** The app is deployed at **[`https://beacon.thiluxan.com`](https://beacon.thiluxan.com)** via push-to-main: GitHub Actions runs checks, builds both images and pushes them to ghcr, then deploys over SSH onto a DigitalOcean VPS (Caddy auto-TLS reverse proxy + Docker Compose: web, Hono server, Postgres). `deploy.sh` runs migrations, health-verifies both hosts, and rolls back on failure. The full provisioning runbook is in [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md). Real-time monitoring is still a later phase.
 
 ### What works today
 
@@ -22,13 +22,39 @@ A real-time monitoring dashboard for the services I run — self-hosted on my ow
 
 Tracked in [`docs/phases/`](docs/phases/):
 
-- **Phase 2** — VPS provisioning, Caddy, Docker Compose for production, GitHub Actions deploy pipeline.
 - **Phase 3** — background health-check workers and real-time status streaming over WebSockets.
 - **Phase 4** — the integration layer (Vercel, GitHub today; Railway, Fly, custom webhooks tomorrow).
 - **Phase 5** — incident timelines and alerting.
 - **Phase 6** — polish.
 
 ## Architecture
+
+```mermaid
+flowchart TD
+    Visitor([Browser / recruiter]) -->|HTTPS · Namecheap DNS| Caddy
+
+    subgraph Droplet["DigitalOcean droplet · Ubuntu 24.04 · Docker Compose"]
+        Caddy[Caddy<br/>auto-TLS + reverse proxy]
+        Caddy -->|beacon.thiluxan.com| Web[Next.js 16 web<br/>Server Components]
+        Caddy -->|api.beacon.thiluxan.com| Server[Hono server<br/>long-running · HTTP + WS hub]
+        Web <-->|reads · internal Docker network| Server
+        Server --> DB[(Postgres 16<br/>Drizzle · also the job queue)]
+        Workers[Background workers<br/>health checks · integration fetches] --> DB
+        Server -.->|live status_changed| Web
+    end
+
+    Workers -.->|probe · poll| External[Monitored targets<br/>Vercel · GitHub · any HTTP endpoint]
+
+    subgraph Pipeline["Push-to-main deploy"]
+        Actions[GitHub Actions<br/>typecheck · lint · test · build] --> Registry[(ghcr.io images)]
+    end
+    Registry -.->|deploy.sh over SSH · pull · migrate · verify · rollback| Caddy
+
+    classDef planned fill:#eef1f5,stroke:#9aa5b1,stroke-dasharray:4 3,color:#33404f;
+    class Workers,External planned;
+```
+
+> **Solid** = live today (Phases 1–2: web, server, Postgres, and the push-to-main deploy pipeline). **Dashed** = the background workers, real-time WebSocket updates, and integration layer landing in Phases 3–5.
 
 The central abstraction is the **integration layer**: every source of monitoring data (Vercel, GitHub, a plain HTTP check) implements one interface and registers itself. Adding a new platform is always a "drop in a file + register it" operation, never a change to core code. That design — and how the long-running server, WebSockets, and database fit together — is documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

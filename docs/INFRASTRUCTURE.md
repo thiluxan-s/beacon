@@ -58,18 +58,16 @@ The integration credentials key (`INTEGRATIONS_ENCRYPTION_KEY`), Resend email va
 
 ## DNS
 
-### Cloudflare configuration
+### DNS configuration (Namecheap)
 
-- Domain: TBD (subdomain on `thiluxan.com` likely — e.g., `beacon.thiluxan.com` and `api.beacon.thiluxan.com`).
-- Cloudflare is the DNS provider; the orange-cloud proxy is enabled for the web app domain (DDoS protection, hides VPS IP).
-- For the WebSocket subdomain (`api.beacon.thiluxan.com`), the orange cloud must allow WebSockets — Cloudflare supports this on all tiers, but verify in the Network tab of the dashboard. SSL/TLS mode: **Full (strict)** (Cloudflare validates the origin certificate, which Caddy provides via Let's Encrypt).
-- DNS records:
-  - `beacon` A record → VPS IP, proxied.
-  - `api.beacon` A record → VPS IP, proxied.
+> **Deviation from the original plan:** the stack doc envisioned Cloudflare as the DNS provider + proxy. In practice `thiluxan.com` is managed at **Namecheap**, and Phase 2 shipped with Namecheap DNS and **no proxy in front of the VPS**. Caddy on the droplet terminates TLS directly via Let's Encrypt, so the proxy layer was never required to ship. The trade-off accepted: no Cloudflare DDoS protection / origin-IP hiding / CDN. Revisit if those become necessary (would mean moving the domain's nameservers to Cloudflare).
 
-### Why Cloudflare in front
-
-Three reasons: DDoS protection (free), hiding the VPS IP from public DNS resolution, and a single place to manage DNS for all my projects. The downside (a layer of caching that complicates some debug scenarios) is manageable.
+- Domain: `beacon.thiluxan.com` (web) and `api.beacon.thiluxan.com` (API/WS), managed in Namecheap → Advanced DNS.
+- DNS records (both **plain A records**, no proxy):
+  - Host `beacon` → A record → VPS IP.
+  - Host `api.beacon` → A record → VPS IP.
+- Namecheap quirk: the Host field takes only the subdomain (`api.beacon`), not the full FQDN — Namecheap appends `.thiluxan.com`.
+- Because there is no proxy, there is no grey-cloud/orange-cloud flip and no Cloudflare SSL mode to set: add the records once and Caddy issues the certs on first deploy.
 
 ---
 
@@ -260,8 +258,8 @@ If both UptimeRobot monitors go red, the dashboard is genuinely down and I need 
 2. As root: `bash bootstrap-vps.sh "<your-ssh-public-key>"` (creates user `thiluxan`, hardens SSH, ufw, fail2ban, Docker, `/opt/beacon`).
 3. Copy `infrastructure/docker-compose.yml`, `infrastructure/Caddyfile`, and `infrastructure/deploy/deploy.sh` to `/opt/beacon/` (deploy/ keeps deploy.sh). Copy `infrastructure/scripts/` too.
 4. Create `/opt/beacon/.env` (chmod 600) from `infrastructure/.env.production.example` with real secrets: generate `POSTGRES_PASSWORD` and `INTERNAL_API_SECRET` (`openssl rand -base64 32`), paste production Clerk keys.
-5. Cloudflare: add A records `beacon` and `api.beacon` → droplet IP. Start **DNS-only (grey cloud)** so Caddy can issue Let's Encrypt certs. Once `https://beacon.thiluxan.com` serves a valid cert, switch to **proxied (orange) + SSL Full (strict)**. Verify WebSockets are allowed on the API host (Network tab).
-6. GitHub repo secrets: `SSH_PRIVATE_KEY` (deploy key for user `thiluxan`), `SSH_HOST` (droplet IP), `SSH_HOST_FINGERPRINT` (the host's SHA256 key fingerprint, pinned by the deploy workflow — generate with `ssh-keyscan -t ed25519 <ip> | ssh-keygen -lf - | cut -d ' ' -f2`, yields `SHA256:...`), `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+5. Namecheap (Advanced DNS): add two **A records** → droplet IP — Host `beacon` and Host `api.beacon` (Host field is the subdomain only; Namecheap appends `.thiluxan.com`). No proxy, so there is nothing to flip afterwards — Caddy issues Let's Encrypt certs on first deploy. Verify with `dig +short beacon.thiluxan.com` / `dig +short api.beacon.thiluxan.com` (both must return the droplet IP — watch for typos).
+6. GitHub repo secrets (4 total): `SSH_PRIVATE_KEY` (private deploy key for user `thiluxan`), `SSH_HOST` (droplet IP), `SSH_HOST_FINGERPRINT`, and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (the `pk_live_…` key — **required at build time**, the web image bakes `NEXT_PUBLIC_*` in during the CI build; setting it only in `/opt/beacon/.env` is NOT enough). For the fingerprint, generate the **ECDSA** key's SHA256 (appleboy/ssh-action's Go SSH client negotiates the ECDSA host key, not ed25519): `ssh-keyscan -t ecdsa <ip> | ssh-keygen -lf - | cut -d ' ' -f2` → yields `SHA256:...`.
 7. Clerk dashboard: add a production webhook → `https://beacon.thiluxan.com/api/clerk/webhook`, subscribe `user.created`/`user.updated`, copy the signing secret into `/opt/beacon/.env` as `CLERK_WEBHOOK_SECRET`.
 8. First deploy: push to `main` (or re-run the workflow). Watch GitHub Actions. **Note:** on the very first deploy Caddy is still obtaining Let's Encrypt certs, so `deploy.sh`'s HTTPS health checks can fail (and, with no previous version, the job reports failure) even though the stack came up — give it a minute and re-run the workflow once the cert is issued. On success, visit `https://beacon.thiluxan.com`, sign in, and confirm a row: `BEACON_VERSION=$(cat /opt/beacon/.deployed_version) docker compose exec postgres psql -U beacon -d beacon -c 'select clerk_user_id, email from users;'`.
 9. Tag the known-good deploy: `git tag -a v0.2.0 -m "First production deploy" && git push --tags`.
@@ -277,7 +275,7 @@ If both UptimeRobot monitors go red, the dashboard is genuinely down and I need 
 3. `docker compose logs --tail=200 caddy` — is Caddy crashing? SSL renewal failed?
 4. `docker compose logs --tail=200 web` — is Next.js crashing?
 5. Check DigitalOcean dashboard — is the Droplet alive?
-6. Check Cloudflare — is the proxy enabled? Has anything changed?
+6. Check Namecheap DNS — do `beacon`/`api.beacon` still resolve to the droplet IP (`dig +short …`)? Has a record changed?
 
 ### "Status checks are running but data isn't updating"
 
