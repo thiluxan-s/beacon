@@ -40,15 +40,15 @@ flowchart TD
         Web <-->|reads · internal Docker network| Server
         Server --> DB[(Postgres 16<br/>Drizzle · also the job queue)]
         Workers[Background workers<br/>health checks · integration fetches] --> DB
-        Server -. live status_changed .-> Web
+        Server -.->|live status_changed| Web
     end
 
-    Workers -. probe · poll .-> External[Monitored targets<br/>Vercel · GitHub · any HTTP endpoint]
+    Workers -.->|probe · poll| External[Monitored targets<br/>Vercel · GitHub · any HTTP endpoint]
 
     subgraph Pipeline["Push-to-main deploy"]
         Actions[GitHub Actions<br/>typecheck · lint · test · build] --> Registry[(ghcr.io images)]
     end
-    Registry -. deploy.sh over SSH · pull · migrate · verify · rollback .-> Caddy
+    Registry -.->|deploy.sh over SSH · pull · migrate · verify · rollback| Caddy
 
     classDef planned fill:#eef1f5,stroke:#9aa5b1,stroke-dasharray:4 3,color:#33404f;
     class Workers,External planned;
