@@ -50,8 +50,12 @@ if verify "$API_HEALTH" && verify "$WEB_HEALTH"; then
 fi
 
 echo "[deploy] health check FAILED" >&2
+# NOTE: this rolls back the IMAGES only — the database migration above is not reverted
+# (we run forward-only migrations, by design). Keep every migration backward-compatible
+# so the previous image can run against the already-migrated schema. If a migration is
+# ever non-additive, an image rollback alone will NOT restore a working state.
 if [ -n "$PREVIOUS_VERSION" ]; then
-  echo "[deploy] rolling back to ${PREVIOUS_VERSION}" >&2
+  echo "[deploy] rolling back IMAGES to ${PREVIOUS_VERSION} (schema NOT reverted)" >&2
   export BEACON_VERSION="$PREVIOUS_VERSION"
   docker compose pull web server
   docker compose up -d

@@ -167,7 +167,7 @@ The deploy script lives at `infrastructure/deploy/deploy.sh`. CI calls it over S
 
 GitHub Actions secrets:
 - `SSH_PRIVATE_KEY` — deploy key for SSH access to VPS.
-- `SSH_KNOWN_HOSTS` — host fingerprint.
+- `SSH_HOST_FINGERPRINT` — host's SHA256 key fingerprint, pinned by the deploy workflow to prevent MITM.
 - `GHCR_TOKEN` — for pushing images (or use GITHUB_TOKEN).
 - Production environment variables are NOT in CI — they live on the VPS in `/opt/beacon/.env`.
 
@@ -261,9 +261,9 @@ If both UptimeRobot monitors go red, the dashboard is genuinely down and I need 
 3. Copy `infrastructure/docker-compose.yml`, `infrastructure/Caddyfile`, and `infrastructure/deploy/deploy.sh` to `/opt/beacon/` (deploy/ keeps deploy.sh). Copy `infrastructure/scripts/` too.
 4. Create `/opt/beacon/.env` (chmod 600) from `infrastructure/.env.production.example` with real secrets: generate `POSTGRES_PASSWORD` and `INTERNAL_API_SECRET` (`openssl rand -base64 32`), paste production Clerk keys.
 5. Cloudflare: add A records `beacon` and `api.beacon` → droplet IP. Start **DNS-only (grey cloud)** so Caddy can issue Let's Encrypt certs. Once `https://beacon.thiluxan.com` serves a valid cert, switch to **proxied (orange) + SSL Full (strict)**. Verify WebSockets are allowed on the API host (Network tab).
-6. GitHub repo secrets: `SSH_PRIVATE_KEY` (deploy key for user `thiluxan`), `SSH_HOST` (droplet IP), `SSH_KNOWN_HOSTS` (`ssh-keyscan <ip>`), `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+6. GitHub repo secrets: `SSH_PRIVATE_KEY` (deploy key for user `thiluxan`), `SSH_HOST` (droplet IP), `SSH_HOST_FINGERPRINT` (the host's SHA256 key fingerprint, pinned by the deploy workflow — generate with `ssh-keyscan -t ed25519 <ip> | ssh-keygen -lf - | cut -d ' ' -f2`, yields `SHA256:...`), `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 7. Clerk dashboard: add a production webhook → `https://beacon.thiluxan.com/api/clerk/webhook`, subscribe `user.created`/`user.updated`, copy the signing secret into `/opt/beacon/.env` as `CLERK_WEBHOOK_SECRET`.
-8. First deploy: push to `main` (or re-run the workflow). Watch GitHub Actions. On success, visit `https://beacon.thiluxan.com`, sign in, and confirm a row: `docker compose exec postgres psql -U beacon -d beacon -c 'select clerk_user_id, email from users;'`.
+8. First deploy: push to `main` (or re-run the workflow). Watch GitHub Actions. **Note:** on the very first deploy Caddy is still obtaining Let's Encrypt certs, so `deploy.sh`'s HTTPS health checks can fail (and, with no previous version, the job reports failure) even though the stack came up — give it a minute and re-run the workflow once the cert is issued. On success, visit `https://beacon.thiluxan.com`, sign in, and confirm a row: `BEACON_VERSION=$(cat /opt/beacon/.deployed_version) docker compose exec postgres psql -U beacon -d beacon -c 'select clerk_user_id, email from users;'`.
 9. Tag the known-good deploy: `git tag -a v0.2.0 -m "First production deploy" && git push --tags`.
 
 ---

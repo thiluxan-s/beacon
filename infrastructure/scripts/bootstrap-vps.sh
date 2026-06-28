@@ -20,8 +20,18 @@ chmod 600 "/home/${DEPLOY_USER}/.ssh/authorized_keys"
 chown "${DEPLOY_USER}:${DEPLOY_USER}" "/home/${DEPLOY_USER}/.ssh/authorized_keys"
 
 echo "[bootstrap] SSH hardening"
-sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+# Ubuntu 24.04's sshd_config does `Include /etc/ssh/sshd_config.d/*.conf` near the top,
+# and cloud images (incl. DigitalOcean) ship a 50-cloud-init.conf drop-in there. sshd
+# honours the FIRST value it sees for each key and reads drop-ins in lexical order, so
+# editing the base file alone can be silently overridden. Name ours `00-` so it sorts
+# ahead of any cloud-init drop-in and therefore wins. Validate before restarting.
+install -d -m 755 /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/00-beacon-hardening.conf <<'SSHD'
+PermitRootLogin no
+PasswordAuthentication no
+SSHD
+chmod 644 /etc/ssh/sshd_config.d/00-beacon-hardening.conf
+sshd -t
 systemctl restart ssh
 
 echo "[bootstrap] firewall (ufw)"
