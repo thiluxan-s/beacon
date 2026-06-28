@@ -16,7 +16,7 @@ services:
       - server
 
   web:
-    image: ghcr.io/thiluxan-s/beacon-web:${BEACON_VERSION}
+    image: ghcr.io/thiluxan-s/beacon-web:${BEACON_VERSION:-latest}
     restart: unless-stopped
     env_file:
       - path: .env
@@ -27,7 +27,7 @@ services:
       - server
 
   server:
-    image: ghcr.io/thiluxan-s/beacon-server:${BEACON_VERSION}
+    image: ghcr.io/thiluxan-s/beacon-server:${BEACON_VERSION:-latest}
     restart: unless-stopped
     env_file:
       - path: .env
