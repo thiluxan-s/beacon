@@ -63,7 +63,7 @@ These are decided. Don't propose swaps without asking.
 
 ### Application layer
 - **Backend:** Node.js + Hono (long-running HTTP + WebSocket server). NOT serverless functions.
-- **Frontend:** Next.js 15 (App Router) + TypeScript strict — served from the same VPS, behind the same reverse proxy.
+- **Frontend:** Next.js 16 (App Router) + TypeScript strict — served from the same VPS, behind the same reverse proxy.
 - **WebSockets:** Native `ws` library (small, well-maintained, no Socket.io magic). Connection state managed in-process.
 - **Database:** Postgres (self-hosted on the VPS via Docker, or managed Neon — decision in Phase 1).
 - **ORM:** Drizzle.
