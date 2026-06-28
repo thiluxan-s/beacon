@@ -14,6 +14,13 @@ if ! id -u "$DEPLOY_USER" >/dev/null 2>&1; then
   adduser --disabled-password --gecos "" "$DEPLOY_USER"
   usermod -aG sudo "$DEPLOY_USER"
 fi
+# The deploy user is created with --disabled-password (no password), so `sudo` would
+# be unusable (it would prompt for a password that does not exist). Grant passwordless
+# sudo via a drop-in — appropriate for a single-purpose deploy box where this user
+# already has Docker (root-equivalent) access. Validate before trusting it.
+printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$DEPLOY_USER" > "/etc/sudoers.d/90-${DEPLOY_USER}"
+chmod 440 "/etc/sudoers.d/90-${DEPLOY_USER}"
+visudo -cf "/etc/sudoers.d/90-${DEPLOY_USER}"
 install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh"
 echo "$PUBKEY" > "/home/${DEPLOY_USER}/.ssh/authorized_keys"
 chmod 600 "/home/${DEPLOY_USER}/.ssh/authorized_keys"
