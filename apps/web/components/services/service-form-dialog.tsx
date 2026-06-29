@@ -21,15 +21,25 @@ export function ServiceFormDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  // Close on Escape
+  function handleClose() {
+    if (pending) return;
+    setOpen(false);
+    setError(null);
+  }
+
+  // Close on Escape. Include `pending` in deps so the listener re-registers
+  // when a save starts/completes, ensuring the in-flight guard is never stale.
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') handleClose();
+      if (e.key !== 'Escape') return;
+      if (pending) return;
+      setOpen(false);
+      setError(null);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, pending]);
 
   function onSubmit(formData: FormData) {
     setError(null);
@@ -45,12 +55,6 @@ export function ServiceFormDialog({
       if (res.ok) setOpen(false);
       else setError(res.error);
     });
-  }
-
-  function handleClose() {
-    if (pending) return;
-    setOpen(false);
-    setError(null);
   }
 
   return (

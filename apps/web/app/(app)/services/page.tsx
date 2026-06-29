@@ -172,7 +172,7 @@ export default async function ServicesPage() {
                 </span>
 
                 {/* Row actions — revealed on hover (Linear/Vercel pattern) */}
-                <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
                   <ServiceRowActions service={s} />
                 </div>
               </li>
