@@ -1,7 +1,7 @@
-import { and, desc, eq } from 'drizzle-orm';
-import type { ServiceCreateInput, ServiceUpdateInput } from '@beacon/shared';
+import { and, desc, eq, lte } from 'drizzle-orm';
+import type { CheckStatus, ServiceCreateInput, ServiceStatus, ServiceUpdateInput } from '@beacon/shared';
 import { db } from '../index';
-import { services, type Service } from '../schema';
+import { serviceChecks, services, type Service } from '../schema';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(s: string): boolean {
@@ -75,4 +75,42 @@ export async function setPaused(userId: string, id: string, paused: boolean): Pr
     .where(and(eq(services.id, id), eq(services.userId, userId)))
     .returning();
   return rows[0] ?? null;
+}
+
+export async function findDueServices(limit: number): Promise<Service[]> {
+  return db
+    .select()
+    .from(services)
+    .where(and(eq(services.paused, false), lte(services.nextCheckAt, new Date())))
+    .orderBy(services.nextCheckAt)
+    .limit(limit);
+}
+
+export async function applyCheckResult(args: {
+  service: Service;
+  check: { status: CheckStatus; statusCode: number | null; responseTimeMs: number | null; errorMessage: string | null };
+  newStatus: ServiceStatus;
+}): Promise<void> {
+  const now = new Date();
+  const next = new Date(now.getTime() + args.service.checkIntervalSeconds * 1000);
+  const statusChanged = args.newStatus !== args.service.currentStatus;
+  await db.transaction(async (tx) => {
+    await tx.insert(serviceChecks).values({
+      serviceId: args.service.id,
+      status: args.check.status,
+      statusCode: args.check.statusCode,
+      responseTimeMs: args.check.responseTimeMs,
+      errorMessage: args.check.errorMessage,
+      checkedAt: now,
+    });
+    await tx
+      .update(services)
+      .set({
+        lastCheckAt: now,
+        nextCheckAt: next,
+        updatedAt: now,
+        ...(statusChanged ? { currentStatus: args.newStatus, currentStatusSince: now } : {}),
+      })
+      .where(eq(services.id, args.service.id));
+  });
 }
