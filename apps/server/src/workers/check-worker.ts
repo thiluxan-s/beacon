@@ -31,6 +31,8 @@ export async function checkOne(service: Service, deps: CheckDeps = {}): Promise<
       responseTimeMs: Date.now() - startedAt,
       expectedStatusCodes: service.expectedStatusCodes,
     };
+    // Drain the body to release the socket; guard so it can't throw past the timing capture.
+    await res.body?.cancel().catch(() => undefined);
   } catch (err) {
     if (controller.signal.aborted) {
       input = { outcome: 'timeout', responseTimeMs: Date.now() - startedAt };

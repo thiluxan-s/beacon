@@ -35,9 +35,17 @@ function statusCounts(services: ServiceDto[]) {
 
 export default async function ServicesPage() {
   const user = await currentUser();
-  const services: ServiceDto[] = user
-    ? await fetchServices(user.id).catch(() => [])
-    : [];
+
+  let services: ServiceDto[] = [];
+  let loadError = false;
+
+  if (user) {
+    try {
+      services = await fetchServices(user.id);
+    } catch {
+      loadError = true;
+    }
+  }
 
   const counts = statusCounts(services);
   const hasIssues = counts.down > 0 || counts.degraded > 0;
@@ -49,15 +57,27 @@ export default async function ServicesPage() {
       <div className="flex items-center justify-between border-b border-zinc-200/60 px-5 py-3.5">
         <div className="flex items-baseline gap-2.5">
           <h1 className="text-sm font-semibold text-zinc-900">Services</h1>
-          <span className="font-mono text-[10px] tabular-nums text-zinc-400">
-            {services.length} endpoint{services.length !== 1 ? 's' : ''}
-          </span>
+          {!loadError && (
+            <span className="font-mono text-[10px] tabular-nums text-zinc-400">
+              {services.length} endpoint{services.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
         <ServiceFormDialog triggerLabel="Add service" />
       </div>
 
+      {/* ─── Data unavailable banner ─── */}
+      {loadError && (
+        <div className="flex items-center gap-2 border-b border-zinc-200/40 bg-zinc-50/70 px-5 py-2.5">
+          <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" aria-hidden="true" />
+          <p className="font-mono text-[11px] text-zinc-500">
+            Couldn&apos;t load services — retrying
+          </p>
+        </div>
+      )}
+
       {/* ─── Status summary strip (only when there are services) ─── */}
-      {services.length > 0 && (
+      {!loadError && services.length > 0 && (
         <div
           className={[
             'flex items-center gap-5 border-b px-5 py-2 transition-colors',
@@ -93,7 +113,7 @@ export default async function ServicesPage() {
       )}
 
       {/* ─── Column header row (only when there are services) ─── */}
-      {services.length > 0 && (
+      {!loadError && services.length > 0 && (
         <div className="flex items-center gap-4 border-b border-zinc-200/40 px-5 py-2">
           <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
             Service
@@ -110,7 +130,7 @@ export default async function ServicesPage() {
       )}
 
       {/* ─── Empty state ─── */}
-      {services.length === 0 && (
+      {!loadError && services.length === 0 && (
         <div className="flex flex-1 items-center justify-center">
           <div className="py-16 text-center">
             {/* Minimal terminal-motif decoration */}
@@ -127,7 +147,7 @@ export default async function ServicesPage() {
       )}
 
       {/* ─── Service rows ─── */}
-      {services.length > 0 && (
+      {!loadError && services.length > 0 && (
         <ul className="divide-y divide-zinc-200/40">
           {services.map((s) => {
             const style = STATUS_STYLE[s.currentStatus] ?? {

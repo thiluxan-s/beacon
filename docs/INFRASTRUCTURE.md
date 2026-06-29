@@ -121,8 +121,7 @@ Services:
 - `caddy` — reverse proxy.
 - `web` — Next.js app, built from `apps/web`.
 - `server` — Hono API + WebSocket, built from `apps/server`.
-- `check-worker` — same image as `server`, different entrypoint command.
-- `integration-worker` — same image, different entrypoint.
+- `worker` — same image as `server`, runs the background check worker (`npm run worker`).
 - `postgres` — Postgres 16, with volume mount for data persistence.
 
 ### Background worker
