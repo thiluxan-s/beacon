@@ -1,67 +1,224 @@
-import { Button } from "@/components/ui/button";
+import { currentUser } from '@clerk/nextjs/server';
+import { fetchServices, type ServiceDto } from '@/lib/services-api';
+import { ServiceFormDialog } from '@/components/services/service-form-dialog';
+import { ServiceRowActions } from '@/components/services/service-row-actions';
 
-// Column definitions communicate what the table will look like once services exist.
-// Honest empty state — no placeholder/fake data (CLAUDE.md anti-pattern).
-const COLUMNS = [
-  { label: "Service",    flex: "flex-1" },
-  { label: "Status",     flex: "w-20" },
-  { label: "Uptime",     flex: "w-16" },
-  { label: "P50",        flex: "w-12" },
-  { label: "Last check", flex: "w-28 text-right" },
-] as const;
+// Use the project's custom --color-status-* tokens from globals.css @theme
+const STATUS_STYLE: Record<string, { text: string; dot: string; pulse: boolean }> = {
+  up:       { text: 'text-status-up',      dot: 'bg-status-up',      pulse: true  },
+  down:     { text: 'text-status-down',    dot: 'bg-status-down',    pulse: false },
+  degraded: { text: 'text-status-degraded',dot: 'bg-status-degraded',pulse: false },
+  paused:   { text: 'text-status-paused',  dot: 'bg-status-paused',  pulse: false },
+  pending:  { text: 'text-zinc-400',       dot: 'bg-zinc-300',       pulse: false },
+};
 
-export default function ServicesPage() {
+function lastChecked(s: ServiceDto): string {
+  if (!s.lastCheckAt) return '—';
+  const secs = Math.round((Date.now() - new Date(s.lastCheckAt).getTime()) / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+  return `${Math.round(secs / 3600)}h ago`;
+}
+
+function statusCounts(services: ServiceDto[]) {
+  return services.reduce(
+    (acc, s) => {
+      if (s.paused) acc.paused++;
+      else if (s.currentStatus === 'up') acc.up++;
+      else if (s.currentStatus === 'down') acc.down++;
+      else if (s.currentStatus === 'degraded') acc.degraded++;
+      return acc;
+    },
+    { up: 0, down: 0, degraded: 0, paused: 0 },
+  );
+}
+
+export default async function ServicesPage() {
+  const user = await currentUser();
+
+  let services: ServiceDto[] = [];
+  let loadError = false;
+
+  if (user) {
+    try {
+      services = await fetchServices(user.id);
+    } catch {
+      loadError = true;
+    }
+  }
+
+  const counts = statusCounts(services);
+  const hasIssues = counts.down > 0 || counts.degraded > 0;
+  const issueCount = counts.down + counts.degraded;
+
   return (
     <main className="flex flex-1 flex-col">
-      {/*
-       * Page header row — full width, tight vertical rhythm.
-       * Small "0 endpoints" count communicates data-readiness at a glance.
-       */}
+      {/* ─── Page header ─── */}
       <div className="flex items-center justify-between border-b border-zinc-200/60 px-5 py-3.5">
         <div className="flex items-baseline gap-2.5">
           <h1 className="text-sm font-semibold text-zinc-900">Services</h1>
-          <span className="font-mono text-[10px] tabular-nums text-zinc-400">
-            0 endpoints
-          </span>
+          {!loadError && (
+            <span className="font-mono text-[10px] tabular-nums text-zinc-400">
+              {services.length} endpoint{services.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
-        {/* Disabled until monitoring is wired up in a later phase */}
-        <Button disabled size="sm">
-          Add service
-        </Button>
+        <ServiceFormDialog triggerLabel="Add service" />
       </div>
 
-      {/*
-       * Column header row — mirrors what each data row will contain.
-       * Uses mono, uppercase, letterspace to signal "this is a table".
-       * Prevents the empty state from feeling formless.
-       */}
-      <div className="flex items-center gap-4 border-b border-zinc-200/40 px-5 py-2">
-        {COLUMNS.map(({ label, flex }) => (
-          <span
-            key={label}
-            className={`font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 ${flex}`}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {/*
-       * Empty state — centered in the remaining viewport space.
-       * Deliberately minimal: two lines, no icon, no decorative card.
-       * The column headers above already set context; the message only confirms emptiness.
-       */}
-      <div className="flex flex-1 items-center justify-center">
-        <div className="py-16 text-center">
-          <p className="text-[13px] font-medium text-zinc-700">
-            No services yet
-          </p>
-          <p className="mt-1.5 max-w-[260px] text-[12px] leading-relaxed text-zinc-400">
-            Services you monitor will appear here with live status, uptime
-            percentage, and response times.
+      {/* ─── Data unavailable banner ─── */}
+      {loadError && (
+        <div className="flex items-center gap-2 border-b border-zinc-200/40 bg-zinc-50/70 px-5 py-2.5">
+          <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" aria-hidden="true" />
+          <p className="font-mono text-[11px] text-zinc-500">
+            Couldn&apos;t load services — retrying
           </p>
         </div>
-      </div>
+      )}
+
+      {/* ─── Status summary strip (only when there are services) ─── */}
+      {!loadError && services.length > 0 && (
+        <div
+          className={[
+            'flex items-center gap-5 border-b px-5 py-2 transition-colors',
+            hasIssues
+              ? 'border-red-100/80 bg-red-50/40'
+              : 'border-zinc-200/40 bg-zinc-50/50',
+          ].join(' ')}
+        >
+          {counts.up > 0 && (
+            <StatusPill count={counts.up} label="up" dotClass="bg-status-up" />
+          )}
+          {counts.down > 0 && (
+            <StatusPill count={counts.down} label="down" dotClass="bg-status-down" />
+          )}
+          {counts.degraded > 0 && (
+            <StatusPill count={counts.degraded} label="degraded" dotClass="bg-status-degraded" />
+          )}
+          {counts.paused > 0 && (
+            <StatusPill count={counts.paused} label="paused" dotClass="bg-status-paused" />
+          )}
+
+          {/* Health verdict — right-aligned */}
+          {hasIssues ? (
+            <span className="ml-auto font-mono text-[11px] font-medium text-status-down">
+              {issueCount} issue{issueCount !== 1 ? 's' : ''}
+            </span>
+          ) : (
+            <span className="ml-auto font-mono text-[11px] text-status-up/70">
+              all systems operational
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ─── Column header row (only when there are services) ─── */}
+      {!loadError && services.length > 0 && (
+        <div className="flex items-center gap-4 border-b border-zinc-200/40 px-5 py-2">
+          <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+            Service
+          </span>
+          <span className="w-24 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+            Status
+          </span>
+          <span className="w-28 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+            Last check
+          </span>
+          {/* Spacer for row actions column — keeps header aligned */}
+          <div className="w-[152px]" />
+        </div>
+      )}
+
+      {/* ─── Empty state ─── */}
+      {!loadError && services.length === 0 && (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="py-16 text-center">
+            {/* Minimal terminal-motif decoration */}
+            <p className="mb-4 font-mono text-[10px] tracking-[0.15em] text-zinc-300 select-none uppercase">
+              no endpoints configured
+            </p>
+            <p className="text-[13px] font-medium text-zinc-700">No services yet</p>
+            <p className="mt-1.5 max-w-[260px] text-[12px] leading-relaxed text-zinc-400">
+              Add a service and the background worker will start checking it within
+              seconds.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Service rows ─── */}
+      {!loadError && services.length > 0 && (
+        <ul className="divide-y divide-zinc-200/40">
+          {services.map((s) => {
+            const style = STATUS_STYLE[s.currentStatus] ?? {
+              text: 'text-zinc-500',
+              dot: 'bg-zinc-300',
+              pulse: false,
+            };
+            return (
+              <li
+                key={s.id}
+                className="group flex items-center gap-4 px-5 py-3 transition-colors hover:bg-zinc-50/70"
+              >
+                {/* Service name + URL */}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium text-zinc-900">{s.name}</p>
+                  <p className="truncate font-mono text-[11px] text-zinc-400">
+                    {s.baseUrl}
+                    {s.healthCheckPath === '/' ? '' : s.healthCheckPath}
+                  </p>
+                </div>
+
+                {/* Status badge — dot + label */}
+                <div className="flex w-24 items-center gap-1.5">
+                  <span
+                    className={[
+                      'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+                      style.dot,
+                      style.pulse ? 'animate-pulse' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-hidden="true"
+                  />
+                  <span className={`text-[12px] font-medium capitalize ${style.text}`}>
+                    {s.currentStatus}
+                  </span>
+                </div>
+
+                {/* Last check time */}
+                <span className="w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400">
+                  {lastChecked(s)}
+                </span>
+
+                {/* Row actions — revealed on hover (Linear/Vercel pattern) */}
+                <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                  <ServiceRowActions service={s} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </main>
+  );
+}
+
+function StatusPill({
+  count,
+  label,
+  dotClass,
+}: {
+  count: number;
+  label: string;
+  dotClass: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`} aria-hidden="true" />
+      <span className="font-mono text-[11px] tabular-nums text-zinc-500">
+        {count} {label}
+      </span>
+    </span>
   );
 }

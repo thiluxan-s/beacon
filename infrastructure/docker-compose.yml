@@ -38,6 +38,17 @@ services:
       postgres:
         condition: service_healthy
 
+  worker:
+    image: ghcr.io/thiluxan-s/beacon-server:${BEACON_VERSION:-latest}
+    restart: unless-stopped
+    command: ['npm', 'run', 'worker']
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     restart: unless-stopped

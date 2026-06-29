@@ -121,9 +121,12 @@ Services:
 - `caddy` — reverse proxy.
 - `web` — Next.js app, built from `apps/web`.
 - `server` — Hono API + WebSocket, built from `apps/server`.
-- `check-worker` — same image as `server`, different entrypoint command.
-- `integration-worker` — same image, different entrypoint.
+- `worker` — same image as `server`, runs the background check worker (`npm run worker`).
 - `postgres` — Postgres 16, with volume mount for data persistence.
+
+### Background worker
+
+A `worker` service runs in the Compose stack using the same `beacon-server` image with `command: npm run worker` (entry `apps/server/src/workers/index.ts`). It polls Postgres for due service checks every ~5s, runs HTTP health checks with a per-check timeout, and writes results + status. It publishes no ports and is restarted by Docker if it crashes (stateless — it resumes from the DB). Locally it runs as part of `npm run dev`.
 
 Image strategy:
 - Web and server images are built by GitHub Actions, pushed to GitHub Container Registry (`ghcr.io/thiluxan-s/beacon-web:<sha>`, etc.).
