@@ -7,9 +7,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n web,server -c blue,green \"npm:dev:web\" \"npm:dev:server\"",
+    "dev": "concurrently -n web,server,worker -c blue,green,magenta \"npm:dev:web\" \"npm:dev:server\" \"npm:dev:worker\"",
     "dev:web": "npm run dev -w @beacon/web",
     "dev:server": "npm run dev -w @beacon/server",
+    "dev:worker": "npm run worker:dev -w @beacon/server",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

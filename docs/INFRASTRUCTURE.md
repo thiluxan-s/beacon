@@ -125,6 +125,10 @@ Services:
 - `integration-worker` — same image, different entrypoint.
 - `postgres` — Postgres 16, with volume mount for data persistence.
 
+### Background worker
+
+A `worker` service runs in the Compose stack using the same `beacon-server` image with `command: npm run worker` (entry `apps/server/src/workers/index.ts`). It polls Postgres for due service checks every ~5s, runs HTTP health checks with a per-check timeout, and writes results + status. It publishes no ports and is restarted by Docker if it crashes (stateless — it resumes from the DB). Locally it runs as part of `npm run dev`.
+
 Image strategy:
 - Web and server images are built by GitHub Actions, pushed to GitHub Container Registry (`ghcr.io/thiluxan-s/beacon-web:<sha>`, etc.).
 - The Compose file references these tagged images.
