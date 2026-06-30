@@ -9,3 +9,9 @@ export {
   type ServiceCreateInput,
   type ServiceUpdateInput,
 } from './schemas/service';
+export {
+  WsEventSchema,
+  WsClientMessageSchema,
+  type WsEvent,
+  type WsClientMessage,
+} from './schemas/ws-event';
