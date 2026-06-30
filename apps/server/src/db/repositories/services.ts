@@ -1,4 +1,4 @@
-import { and, desc, eq, lte } from 'drizzle-orm';
+import { and, desc, eq, lte, sql } from 'drizzle-orm';
 import type { CheckStatus, ServiceCreateInput, ServiceStatus, ServiceUpdateInput } from '@beacon/shared';
 import { db } from '../index';
 import { serviceChecks, services, type Service } from '../schema';
@@ -112,5 +112,16 @@ export async function applyCheckResult(args: {
         ...(statusChanged ? { currentStatus: args.newStatus, currentStatusSince: now } : {}),
       })
       .where(eq(services.id, args.service.id));
+    if (statusChanged) {
+      const event = {
+        type: 'service.status_changed' as const,
+        serviceId: args.service.id,
+        userId: args.service.userId,
+        status: args.newStatus,
+        previousStatus: args.service.currentStatus,
+        occurredAt: now.toISOString(),
+      };
+      await tx.execute(sql`select pg_notify('beacon_events', ${JSON.stringify(event)})`);
+    }
   });
 }
