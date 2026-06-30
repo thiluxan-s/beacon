@@ -7,6 +7,7 @@ const EnvSchema = z.object({
   WEB_ORIGIN: z.string().url(),
   // min(32): matches the `openssl rand -base64 32` guidance in .env.example.
   INTERNAL_API_SECRET: z.string().min(32),
+  CLERK_SECRET_KEY: z.string().min(1),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
