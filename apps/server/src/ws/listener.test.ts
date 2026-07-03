@@ -26,4 +26,13 @@ describe('startEventListener (integration)', () => {
     await notifier.end();
     await sub.stop();
   });
+
+  it('resolves (does not reject/crash) when the initial connection fails', async () => {
+    // A DB outage at boot must not crash the process — startEventListener should
+    // resolve and retry in the background; stop() cancels the pending reconnect.
+    const broadcast = vi.fn();
+    const sub = await startEventListener({ broadcast }, { connectionString: 'postgresql://nobody:nobody@127.0.0.1:1/nope' });
+    await sub.stop();
+    expect(broadcast).not.toHaveBeenCalled();
+  });
 });

@@ -18,4 +18,6 @@ const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 
 const hub = new ConnectionHub();
 attachWebSocketServer(server as unknown as import('node:http').Server, hub);
-void startEventListener(hub).then(() => console.log('[beacon-server] LISTEN beacon_events started'));
+startEventListener(hub)
+  .then(() => console.log('[beacon-server] LISTEN beacon_events started'))
+  .catch((err) => console.error('[beacon-server] failed to start LISTEN relay', err));

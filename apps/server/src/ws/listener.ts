@@ -8,11 +8,25 @@ export async function startEventListener(
 ): Promise<{ stop(): Promise<void> }> {
   const connectionString = deps.connectionString ?? env.DATABASE_URL;
   let stopped = false;
-  let client: Client;
+  let client: Client | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Re-arm a single pending reconnect. Guarded so a client emitting both
+  // 'error' and 'end' (or a stale client firing after teardown) can't spawn
+  // overlapping connect loops. Any connect that rejects re-schedules itself,
+  // so a DB outage retries indefinitely instead of crashing the process.
+  function scheduleReconnect(): void {
+    if (stopped || reconnectTimer) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      void connect().catch(scheduleReconnect);
+    }, 1000);
+  }
 
   async function connect(): Promise<void> {
-    client = new Client({ connectionString });
-    client.on('notification', (msg) => {
+    const c = new Client({ connectionString });
+    client = c;
+    c.on('notification', (msg) => {
       if (msg.channel !== 'beacon_events' || !msg.payload) return;
       let json: unknown;
       try {
@@ -25,21 +39,34 @@ export async function startEventListener(
       if (parsed.success) hub.broadcast(parsed.data);
       else console.error('[beacon-ws] dropped invalid beacon_events payload');
     });
-    client.on('error', (err) => {
+    c.on('error', (err) => {
       console.error('[beacon-ws] LISTEN client error', err);
+      scheduleReconnect();
     });
-    client.on('end', () => {
-      if (!stopped) setTimeout(() => void connect(), 1000); // reconnect with a small backoff
+    c.on('end', () => {
+      scheduleReconnect();
     });
-    await client.connect();
-    await client.query('LISTEN beacon_events');
+    await c.connect();
+    await c.query('LISTEN beacon_events');
   }
 
-  await connect();
+  // A failed initial connect must not crash boot — retry in the background so
+  // the server stays up (and the rest of the app works) while Postgres recovers.
+  try {
+    await connect();
+  } catch (err) {
+    console.error('[beacon-ws] initial LISTEN connect failed; will retry', err);
+    scheduleReconnect();
+  }
+
   return {
     async stop() {
       stopped = true;
-      await client.end();
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (client) await client.end().catch(() => undefined);
     },
   };
 }
