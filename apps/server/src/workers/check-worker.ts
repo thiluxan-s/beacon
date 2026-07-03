@@ -1,4 +1,4 @@
-import { applyCheckResult, findDueServices } from '../db/repositories/services';
+import { applyCheckResult, deleteChecksOlderThan, findDueServices } from '../db/repositories/services';
 import { runBounded } from '../lib/concurrency';
 import type { Service } from '../db/schema';
 import { classifyCheck, type ClassifyInput } from './check-classify';
@@ -6,6 +6,11 @@ import { classifyCheck, type ClassifyInput } from './check-classify';
 const POLL_INTERVAL_MS = 5_000;
 const BATCH_LIMIT = 100;
 const MAX_CONCURRENCY = 10;
+
+// Prune check history older than this once a day so the table stays bounded.
+const CHECK_RETENTION_DAYS = 30;
+const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let lastCleanupAt = 0;
 
 type CheckDeps = { fetchFn?: typeof fetch; apply?: typeof applyCheckResult };
 
@@ -68,6 +73,18 @@ export async function runWorker(): Promise<never> {
           inFlight.delete(svc.id);
         }
       });
+
+      // Daily maintenance: prune old check history. Runs at most once per 24h and
+      // never blocks or crashes the poll loop on failure.
+      if (Date.now() - lastCleanupAt > CLEANUP_INTERVAL_MS) {
+        lastCleanupAt = Date.now();
+        try {
+          const removed = await deleteChecksOlderThan(CHECK_RETENTION_DAYS);
+          if (removed > 0) console.log(`[beacon-worker] pruned ${removed} old service_checks`);
+        } catch (err) {
+          console.error('[beacon-worker] cleanup failed', err);
+        }
+      }
     } catch (err) {
       console.error('[beacon-worker] poll cycle failed', err);
     }
