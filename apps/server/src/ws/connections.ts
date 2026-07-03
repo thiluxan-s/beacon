@@ -4,23 +4,19 @@ import { getService } from '../db/repositories/services';
 
 export type WsLike = { send(data: string): void; readyState?: number };
 
-type Conn = { ws: WsLike; userId: string; topics: Set<string>; alive: boolean };
+type Conn = { ws: WsLike; userId: string; topics: Set<string> };
 
 export class ConnectionHub {
   private conns = new Map<string, Conn>();
 
   add(ws: WsLike, userId: string): string {
     const id = randomUUID();
-    this.conns.set(id, { ws, userId, topics: new Set(), alive: true });
+    this.conns.set(id, { ws, userId, topics: new Set() });
     return id;
   }
 
   remove(connId: string): void {
     this.conns.delete(connId);
-  }
-
-  get(connId: string): Conn | undefined {
-    return this.conns.get(connId);
   }
 
   async subscribe(

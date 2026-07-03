@@ -171,7 +171,7 @@ This is a monorepo. Use npm workspaces (or pnpm if Claude Code argues for it con
 ### Error handling
 - Server Actions return `{ ok: true, data } | { ok: false, error }` — never throw across the boundary.
 - HTTP API endpoints return RFC 7807-style problem details on error. Consistent shape across the API.
-- WebSocket messages are typed: `{ type: 'service.status_changed', payload: { ... } }`. Define every message shape in `packages/shared/schemas/ws.ts`.
+- WebSocket messages are typed: `{ type: 'service.status_changed', payload: { ... } }`. Define every message shape in `packages/shared/src/schemas/ws-event.ts`.
 - Background workers should never crash the process on a single check failure. Catch, log, mark the check as failed, continue.
 
 ### Database
