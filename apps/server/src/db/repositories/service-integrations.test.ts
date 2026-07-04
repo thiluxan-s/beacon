@@ -54,6 +54,22 @@ describe('service-integrations repository', () => {
     expect((await getIntegration(u.id, svc.id, 'vercel'))!.lastError).toBe('boom');
   });
 
+  it('re-attaching (re-upserting) an integration resets fetch state so it becomes due again', async () => {
+    const u = await upsertFromClerk({ clerkUserId: 'u_reattach', email: 'r@e.com' });
+    const svc = await createService(u.id, svcInput);
+    const row = await upsertIntegration({ serviceId: svc.id, integrationId: 'vercel', config: { projectId: 'p1' }, credentialsEncrypted: 'enc1' });
+    await recordFetchSuccess(row.id, { deployments: ['old'] });
+    // freshly fetched, so not due
+    expect((await findDueIntegrations(5 * 60_000, 10)).map((r) => r.id)).not.toContain(row.id);
+
+    await upsertIntegration({ serviceId: svc.id, integrationId: 'vercel', config: { projectId: 'p2' }, credentialsEncrypted: 'enc2' });
+    const after = await getIntegration(u.id, svc.id, 'vercel');
+    expect(after!.lastSnapshot).toBeNull();
+    expect(after!.lastFetchedAt).toBeNull();
+    // re-attach clears fetch state, so it's due again immediately
+    expect((await findDueIntegrations(5 * 60_000, 10)).map((r) => r.id)).toContain(row.id);
+  });
+
   it('deleteIntegration removes only the owner\'s row', async () => {
     const u = await upsertFromClerk({ clerkUserId: 'u_del', email: 'del@e.com' });
     const svc = await createService(u.id, svcInput);

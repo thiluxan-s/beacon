@@ -25,6 +25,8 @@ export async function upsertIntegration(args: {
         config: args.config,
         credentialsEncrypted: args.credentialsEncrypted,
         lastError: null,
+        lastFetchedAt: null,
+        lastSnapshot: null,
         updatedAt: new Date(),
       },
     })
