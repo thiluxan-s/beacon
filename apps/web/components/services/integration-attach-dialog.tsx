@@ -35,7 +35,7 @@ export function IntegrationAttachDialog({ serviceId }: { serviceId: string }) {
     const input = {
       apiToken: String(formData.get('apiToken') ?? ''),
       projectId: String(formData.get('projectId') ?? ''),
-      teamId: String(formData.get('teamId') ?? '') || undefined,
+      teamId: String(formData.get('teamId') ?? '').trim() || undefined,
     };
     start(async () => {
       const res = await attachVercelAction(serviceId, input);
