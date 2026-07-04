@@ -99,3 +99,38 @@ export async function fetchServiceChecks(clerkUserId: string, id: string, limit 
   if (!res.ok) throw new Error(`fetchServiceChecks failed: ${res.status}`);
   return (await res.json()).checks as ServiceCheckDto[];
 }
+
+export type IntegrationDto = {
+  integrationId: string;
+  config: Record<string, unknown>;
+  enabled: boolean;
+  lastFetchedAt: string | null;
+  lastError: string | null;
+  snapshot: Record<string, unknown> | null;
+};
+
+export async function fetchIntegrations(clerkUserId: string, serviceId: string): Promise<IntegrationDto[]> {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/services/${serviceId}/integrations`, { headers: headers(clerkUserId), cache: 'no-store' });
+  if (!res.ok) throw new Error(`fetchIntegrations failed: ${res.status}`);
+  return (await res.json()).integrations as IntegrationDto[];
+}
+
+export async function attachIntegration(
+  clerkUserId: string,
+  serviceId: string,
+  body: { integrationId: string; config: Record<string, unknown>; credentials: Record<string, unknown> },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/services/${serviceId}/integrations`, {
+    method: 'POST', headers: headers(clerkUserId), body: JSON.stringify(body), cache: 'no-store',
+  });
+  if (res.ok) return { ok: true };
+  const err = (await res.json().catch(() => ({}))) as { error?: string };
+  return { ok: false, error: err.error ?? `Request failed (${res.status})` };
+}
+
+export async function removeIntegration(clerkUserId: string, serviceId: string, integrationId: string): Promise<void> {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/services/${serviceId}/integrations/${integrationId}`, {
+    method: 'DELETE', headers: headers(clerkUserId), cache: 'no-store',
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`removeIntegration failed: ${res.status}`);
+}

@@ -5,9 +5,11 @@ import { revalidatePath } from 'next/cache';
 import { ServiceCreateSchema, ServiceUpdateSchema } from '@beacon/shared';
 
 import {
+  attachIntegration,
   createServiceOnServer,
   deleteServiceOnServer,
   pauseServiceOnServer,
+  removeIntegration,
   updateServiceOnServer,
 } from '@/lib/services-api';
 
@@ -69,4 +71,25 @@ export async function pauseServiceAction(id: string, paused: boolean): Promise<R
     console.error('[beacon-web] pauseServiceAction failed', err);
     return { ok: false, error: 'Could not update the service.' };
   }
+}
+
+export async function attachVercelAction(
+  serviceId: string,
+  input: { apiToken: string; projectId: string; teamId?: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: 'Not signed in' };
+  const config: Record<string, unknown> = { projectId: input.projectId };
+  if (input.teamId) config.teamId = input.teamId;
+  const res = await attachIntegration(user.id, serviceId, { integrationId: 'vercel', config, credentials: { apiToken: input.apiToken } });
+  if (res.ok) revalidatePath(`/services/${serviceId}`);
+  return res;
+}
+
+export async function removeIntegrationAction(serviceId: string, integrationId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: 'Not signed in' };
+  await removeIntegration(user.id, serviceId, integrationId);
+  revalidatePath(`/services/${serviceId}`);
+  return { ok: true };
 }

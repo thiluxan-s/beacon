@@ -3,8 +3,9 @@ import Link from 'next/link';
 import { currentUser } from '@clerk/nextjs/server';
 import { notFound } from 'next/navigation';
 
-import { fetchService, fetchServiceChecks } from '@/lib/services-api';
+import { fetchIntegrations, fetchService, fetchServiceChecks } from '@/lib/services-api';
 import { ServiceStatusLive } from '@/components/services/service-status-live';
+import { IntegrationAttachDialog } from '@/components/services/integration-attach-dialog';
 
 // Check-status → project --color-status-* tokens (globals.css @theme)
 const CHECK_STYLE: Record<string, { text: string; dot: string }> = {
@@ -39,6 +40,7 @@ export default async function ServiceDetailPage({
   if (!service) notFound();
 
   const checks = await fetchServiceChecks(user.id, serviceId, 50);
+  const integrations = await fetchIntegrations(user.id, serviceId);
 
   const endpoint = `${service.baseUrl}${service.healthCheckPath === '/' ? '' : service.healthCheckPath}`;
 
@@ -81,6 +83,29 @@ export default async function ServiceDetailPage({
         <MetaItem label="Last check" value={relativeTime(service.lastCheckAt)} />
         <MetaItem label="Next check" value={relativeTime(service.nextCheckAt)} />
       </div>
+
+      {/* ─── Integrations ─── */}
+      <section className="border-b border-zinc-200/40">
+        <div className="flex items-center justify-between gap-2.5 px-5 pt-4 pb-2">
+          <div className="flex items-baseline gap-2.5">
+            <h2 className="font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+              Integrations
+            </h2>
+            {integrations.length > 0 && (
+              <span className="font-mono text-[10px] tabular-nums text-zinc-300">
+                {integrations.length}
+              </span>
+            )}
+          </div>
+          <IntegrationAttachDialog serviceId={service.id} />
+        </div>
+
+        {integrations.length === 0 && (
+          <p className="px-5 pb-4 text-[12px] text-zinc-400">
+            No integrations attached yet.
+          </p>
+        )}
+      </section>
 
       {/* ─── Recent checks ─── */}
       <section className="flex flex-1 flex-col">
