@@ -1,0 +1,7 @@
+import type { IntegrationDefinition } from './types';
+import { vercelIntegration } from './vercel';
+
+// Add new integrations here — one import + one entry. That is the whole point.
+export const IntegrationRegistry: Map<string, IntegrationDefinition> = new Map([
+  [vercelIntegration.id, vercelIntegration as IntegrationDefinition],
+]);

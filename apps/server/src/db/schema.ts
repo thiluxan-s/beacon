@@ -2,10 +2,12 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -68,7 +70,32 @@ export const serviceChecks = pgTable(
   (t) => [index('service_checks_service_checked_idx').on(t.serviceId, t.checkedAt)],
 );
 
+export const serviceIntegrations = pgTable(
+  'service_integrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    serviceId: uuid('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade' }),
+    integrationId: text('integration_id').notNull(),
+    config: jsonb('config').$type<Record<string, unknown>>().notNull(),
+    credentialsEncrypted: text('credentials_encrypted').notNull(),
+    lastFetchedAt: timestamp('last_fetched_at', { withTimezone: true }),
+    lastSnapshot: jsonb('last_snapshot').$type<Record<string, unknown>>(),
+    lastError: text('last_error'),
+    enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('service_integrations_service_integration_idx').on(t.serviceId, t.integrationId),
+    index('service_integrations_due_idx').on(t.enabled, t.lastFetchedAt),
+  ],
+);
+
 export type Service = typeof services.$inferSelect;
 export type NewService = typeof services.$inferInsert;
 export type ServiceCheck = typeof serviceChecks.$inferSelect;
 export type NewServiceCheck = typeof serviceChecks.$inferInsert;
+export type ServiceIntegration = typeof serviceIntegrations.$inferSelect;
+export type NewServiceIntegration = typeof serviceIntegrations.$inferInsert;

@@ -21,6 +21,11 @@ set -a
 . "${COMPOSE_DIR}/.env"
 set +a
 
+if [ -z "${INTEGRATIONS_ENCRYPTION_KEY:-}" ]; then
+  echo "ERROR: INTEGRATIONS_ENCRYPTION_KEY is not set in /opt/beacon/.env — add it before deploying (openssl rand -base64 32)" >&2
+  exit 1
+fi
+
 echo "[deploy] pulling images @ ${NEW_VERSION}"
 docker compose pull web server
 

@@ -5,8 +5,29 @@ import { ServiceCreateSchema, ServiceUpdateSchema } from '@beacon/shared';
 import { env } from './lib/env';
 import { getByClerkId, upsertFromClerk } from './db/repositories/users';
 import { createService, deleteService, getService, listChecks, listServicesByUser, setPaused, updateService } from './db/repositories/services';
+import { IntegrationRegistry } from './integrations/registry';
+import { encrypt } from './lib/crypto';
+import { upsertIntegration, listIntegrations, deleteIntegration } from './db/repositories/service-integrations';
+import type { ServiceIntegration } from './db/repositories/service-integrations';
 
 const UpsertUserSchema = z.object({ clerkUserId: z.string().min(1), email: z.string().email() });
+
+const AttachSchema = z.object({
+  integrationId: z.string().min(1),
+  config: z.record(z.string(), z.unknown()),
+  credentials: z.record(z.string(), z.unknown()),
+});
+
+function toIntegrationDto(row: ServiceIntegration) {
+  return {
+    integrationId: row.integrationId,
+    config: row.config,
+    enabled: row.enabled,
+    lastFetchedAt: row.lastFetchedAt?.toISOString() ?? null,
+    lastError: row.lastError,
+    snapshot: row.lastSnapshot ?? null,
+  };
+}
 
 export function createRouter(): Hono {
   const app = new Hono();
@@ -100,6 +121,49 @@ export function createRouter(): Hono {
     const limit = Math.min(Number(c.req.query('limit') ?? 50) || 50, 200);
     const checks = await listChecks(userId, c.req.param('id'), limit);
     return c.json({ checks });
+  });
+
+  app.get('/internal/services/:id/integrations', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const rows = await listIntegrations(userId, c.req.param('id'));
+    return c.json({ integrations: rows.map(toIntegrationDto) });
+  });
+
+  app.post('/internal/services/:id/integrations', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const serviceId = c.req.param('id');
+    if (!(await getService(userId, serviceId))) return c.json({ error: 'not found' }, 404);
+
+    const parsed = AttachSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'invalid body', issues: parsed.error.issues }, 400);
+
+    const def = IntegrationRegistry.get(parsed.data.integrationId);
+    if (!def) return c.json({ error: 'unknown integration' }, 400);
+
+    const config = def.configSchema.safeParse(parsed.data.config);
+    if (!config.success) return c.json({ error: 'invalid config', issues: config.error.issues }, 400);
+    const creds = def.credentialsSchema.safeParse(parsed.data.credentials);
+    if (!creds.success) return c.json({ error: 'invalid credentials' }, 400);
+
+    const test = await def.testCredentials(creds.data);
+    if (!test.ok) return c.json({ error: test.error }, 400);
+
+    const row = await upsertIntegration({
+      serviceId,
+      integrationId: def.id,
+      config: config.data as Record<string, unknown>,
+      credentialsEncrypted: encrypt(JSON.stringify(creds.data)),
+    });
+    return c.json(toIntegrationDto(row), 201);
+  });
+
+  app.delete('/internal/services/:id/integrations/:integrationId', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const ok = await deleteIntegration(userId, c.req.param('id'), c.req.param('integrationId'));
+    return ok ? c.body(null, 204) : c.json({ error: 'not found' }, 404);
   });
 
   app.post('/internal/services/:id/pause', async (c) => {

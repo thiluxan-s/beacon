@@ -3,8 +3,11 @@ import Link from 'next/link';
 import { currentUser } from '@clerk/nextjs/server';
 import { notFound } from 'next/navigation';
 
-import { fetchService, fetchServiceChecks } from '@/lib/services-api';
+import { fetchIntegrations, fetchService, fetchServiceChecks } from '@/lib/services-api';
 import { ServiceStatusLive } from '@/components/services/service-status-live';
+import { IntegrationAttachDialog } from '@/components/services/integration-attach-dialog';
+import { VercelIntegrationCard } from '@/components/services/vercel-integration-card';
+import { removeIntegrationAction } from '@/app/(app)/services/actions';
 
 // Check-status → project --color-status-* tokens (globals.css @theme)
 const CHECK_STYLE: Record<string, { text: string; dot: string }> = {
@@ -39,6 +42,7 @@ export default async function ServiceDetailPage({
   if (!service) notFound();
 
   const checks = await fetchServiceChecks(user.id, serviceId, 50);
+  const integrations = await fetchIntegrations(user.id, serviceId);
 
   const endpoint = `${service.baseUrl}${service.healthCheckPath === '/' ? '' : service.healthCheckPath}`;
 
@@ -81,6 +85,49 @@ export default async function ServiceDetailPage({
         <MetaItem label="Last check" value={relativeTime(service.lastCheckAt)} />
         <MetaItem label="Next check" value={relativeTime(service.nextCheckAt)} />
       </div>
+
+      {/* ─── Integrations ─── */}
+      <section className="border-b border-zinc-200/40">
+        <div className="flex items-center justify-between gap-2.5 px-5 pt-4 pb-2">
+          <div className="flex items-baseline gap-2.5">
+            <h2 className="font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+              Integrations
+            </h2>
+            {integrations.length > 0 && (
+              <span className="font-mono text-[10px] tabular-nums text-zinc-300">
+                {integrations.length}
+              </span>
+            )}
+          </div>
+          <IntegrationAttachDialog serviceId={service.id} />
+        </div>
+
+        {integrations.length === 0 ? (
+          <p className="px-5 pb-4 text-[12px] text-zinc-400">
+            No integrations attached yet.
+          </p>
+        ) : (
+          <div className="space-y-3 px-5 pb-4">
+            {integrations.map((integration) =>
+              integration.integrationId === 'vercel' ? (
+                <div key={integration.integrationId}>
+                  <div className="flex items-center justify-end pb-1">
+                    <form action={removeVercelIntegration.bind(null, service.id, integration.integrationId)}>
+                      <button
+                        type="submit"
+                        className="font-mono text-[10px] uppercase tracking-[0.1em] text-zinc-400 transition-colors hover:text-status-down"
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  </div>
+                  <VercelIntegrationCard integration={integration} />
+                </div>
+              ) : null,
+            )}
+          </div>
+        )}
+      </section>
 
       {/* ─── Recent checks ─── */}
       <section className="flex flex-1 flex-col">
@@ -167,6 +214,14 @@ export default async function ServiceDetailPage({
       </section>
     </main>
   );
+}
+
+// Thin wrapper so the form action satisfies Next's `(formData) => void | Promise<void>`
+// signature — removeIntegrationAction itself returns a Result the caller can inspect,
+// but this control has no client-side state to surface an error into (4b design pass).
+async function removeVercelIntegration(serviceId: string, integrationId: string): Promise<void> {
+  'use server';
+  await removeIntegrationAction(serviceId, integrationId);
 }
 
 function MetaItem({ label, value }: { label: string; value: string }) {
