@@ -147,7 +147,7 @@ export function createRouter(): Hono {
     const creds = def.credentialsSchema.safeParse(parsed.data.credentials);
     if (!creds.success) return c.json({ error: 'invalid credentials' }, 400);
 
-    const test = await def.testCredentials(creds.data);
+    const test = await def.testCredentials(creds.data, config.data);
     if (!test.ok) return c.json({ error: test.error }, 400);
 
     const row = await upsertIntegration({
