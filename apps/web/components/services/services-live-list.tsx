@@ -42,6 +42,18 @@ function statusCounts(services: ServiceDto[]) {
 export function ServicesLiveList({ initial }: { initial: ServiceDto[] }) {
   const [services, setServices] = useState(initial);
 
+  // Adopt server-driven membership changes (adds/removes arrive as a new
+  // `initial` via revalidation). useState only seeds on mount, so without
+  // this the list ignores newly added/removed rows until a full refresh.
+  // Statuses in `initial` are authoritative: the worker's pg_notify fires
+  // inside the same txn that writes the status, so a fresh server read is
+  // never behind a live WS event.
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (initial !== prevInitial) {
+    setPrevInitial(initial);
+    setServices(initial);
+  }
+
   const onEvent = useCallback((e: WsEvent) => {
     if (e.type !== 'service.status_changed') return;
     setServices((prev) =>
