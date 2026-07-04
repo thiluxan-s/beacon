@@ -33,6 +33,7 @@ jobs:
       WEB_ORIGIN: http://localhost:3000
       INTERNAL_API_SECRET: test-internal-secret-at-least-32-characters
       CLERK_SECRET_KEY: sk_test_ci_placeholder
+      INTEGRATIONS_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

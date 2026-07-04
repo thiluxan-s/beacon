@@ -50,9 +50,12 @@ INTERNAL_API_URL=http://server:3001
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_or_test_xxx
 CLERK_SECRET_KEY=sk_live_or_test_xxx
 CLERK_WEBHOOK_SECRET=whsec_xxx
+INTEGRATIONS_ENCRYPTION_KEY=changeme-openssl-rand-base64-32
 ```
 
-The WebSocket URL (`NEXT_PUBLIC_WS_URL`, e.g. `wss://api.beacon.thiluxan.com/ws`) landed in Phase 3b. Because it is a `NEXT_PUBLIC_*` var, it is inlined into the web bundle at **build time** — it is baked into the web image by the CI build-arg (see the deploy workflow), not read from `/opt/beacon/.env` at runtime, so it does not appear in the list above. The integration credentials key (`INTEGRATIONS_ENCRYPTION_KEY`) and Resend email vars (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`) arrive in later phases as those features land, and will be appended to this file then. `POSTGRES_PASSWORD` and `INTERNAL_API_SECRET` are each generated once with `openssl rand -base64 32`. When the integrations key is introduced, note that losing it means losing access to all encrypted integration credentials in the database — they'd need to be reconfigured — so document a rotation procedure here.
+The WebSocket URL (`NEXT_PUBLIC_WS_URL`, e.g. `wss://api.beacon.thiluxan.com/ws`) landed in Phase 3b. Because it is a `NEXT_PUBLIC_*` var, it is inlined into the web bundle at **build time** — it is baked into the web image by the CI build-arg (see the deploy workflow), not read from `/opt/beacon/.env` at runtime, so it does not appear in the list above. The Resend email vars (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`) arrive in a later phase as that feature lands, and will be appended to this file then. `POSTGRES_PASSWORD`, `INTERNAL_API_SECRET`, and `INTEGRATIONS_ENCRYPTION_KEY` are each generated once with `openssl rand -base64 32`.
+
+> **Before deploying Phase 4a:** the server now validates `INTEGRATIONS_ENCRYPTION_KEY` at startup (used for AES-256-GCM encryption of integration credentials at rest) — both `server` and `worker` will crash-loop without it. Generate it with `openssl rand -base64 32` and add it to `/opt/beacon/.env` *before* the first Phase 4a deploy runs; `deploy.sh` also fail-fasts with a clear error if it's missing. Losing this key means losing access to all encrypted integration credentials in the database — they'd need to be reconfigured — so keep it backed up alongside the other VPS secrets.
 
 ---
 
