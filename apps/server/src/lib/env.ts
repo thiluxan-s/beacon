@@ -8,6 +8,17 @@ const EnvSchema = z.object({
   // min(32): matches the `openssl rand -base64 32` guidance in .env.example.
   INTERNAL_API_SECRET: z.string().min(32),
   CLERK_SECRET_KEY: z.string().min(1),
+  // base64-encoded 32 bytes (openssl rand -base64 32). Used for AES-256-GCM
+  // encryption of integration credentials at rest.
+  INTEGRATIONS_ENCRYPTION_KEY: z
+    .string()
+    .refine((v) => {
+      try {
+        return Buffer.from(v, 'base64').length === 32;
+      } catch {
+        return false;
+      }
+    }, 'must be base64-encoded 32 bytes'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

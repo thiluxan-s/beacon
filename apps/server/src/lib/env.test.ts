@@ -6,6 +6,7 @@ const base = {
   WEB_ORIGIN: 'http://localhost:3000',
   INTERNAL_API_SECRET: 'a-32-char-minimum-secret-value-1234',
   CLERK_SECRET_KEY: 'sk_test_x',
+  INTEGRATIONS_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 };
 
 describe('loadEnv', () => {
