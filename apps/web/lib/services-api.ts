@@ -76,3 +76,26 @@ export async function pauseServiceOnServer(clerkUserId: string, id: string, paus
   if (!res.ok) throw new Error(`pauseService failed: ${res.status}`);
   return (await res.json()) as ServiceDto;
 }
+
+export type ServiceCheckDto = {
+  id: string;
+  serviceId: string;
+  checkedAt: string;
+  status: 'success' | 'failure' | 'timeout' | 'error';
+  statusCode: number | null;
+  responseTimeMs: number | null;
+  errorMessage: string | null;
+};
+
+export async function fetchService(clerkUserId: string, id: string): Promise<ServiceDto | null> {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/services/${id}`, { headers: headers(clerkUserId), cache: 'no-store' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`fetchService failed: ${res.status}`);
+  return (await res.json()) as ServiceDto;
+}
+
+export async function fetchServiceChecks(clerkUserId: string, id: string, limit = 50): Promise<ServiceCheckDto[]> {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/services/${id}/checks?limit=${limit}`, { headers: headers(clerkUserId), cache: 'no-store' });
+  if (!res.ok) throw new Error(`fetchServiceChecks failed: ${res.status}`);
+  return (await res.json()).checks as ServiceCheckDto[];
+}

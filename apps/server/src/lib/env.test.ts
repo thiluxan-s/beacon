@@ -5,6 +5,7 @@ const base = {
   DATABASE_URL: 'postgresql://beacon:beacon@localhost:5432/beacon',
   WEB_ORIGIN: 'http://localhost:3000',
   INTERNAL_API_SECRET: 'a-32-char-minimum-secret-value-1234',
+  CLERK_SECRET_KEY: 'sk_test_x',
 };
 
 describe('loadEnv', () => {

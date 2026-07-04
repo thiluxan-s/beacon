@@ -4,7 +4,7 @@ import type { HealthResponse } from '@beacon/shared';
 import { ServiceCreateSchema, ServiceUpdateSchema } from '@beacon/shared';
 import { env } from './lib/env';
 import { getByClerkId, upsertFromClerk } from './db/repositories/users';
-import { createService, deleteService, getService, listServicesByUser, setPaused, updateService } from './db/repositories/services';
+import { createService, deleteService, getService, listChecks, listServicesByUser, setPaused, updateService } from './db/repositories/services';
 
 const UpsertUserSchema = z.object({ clerkUserId: z.string().min(1), email: z.string().email() });
 
@@ -92,6 +92,14 @@ export function createRouter(): Hono {
     if (!userId) return c.json({ error: 'unknown user' }, 401);
     const ok = await deleteService(userId, c.req.param('id'));
     return ok ? c.body(null, 204) : c.json({ error: 'not found' }, 404);
+  });
+
+  app.get('/internal/services/:id/checks', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const limit = Math.min(Number(c.req.query('limit') ?? 50) || 50, 200);
+    const checks = await listChecks(userId, c.req.param('id'), limit);
+    return c.json({ checks });
   });
 
   app.post('/internal/services/:id/pause', async (c) => {

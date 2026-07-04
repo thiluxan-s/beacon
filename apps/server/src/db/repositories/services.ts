@@ -1,7 +1,7 @@
-import { and, desc, eq, lte } from 'drizzle-orm';
+import { and, desc, eq, lt, lte, sql } from 'drizzle-orm';
 import type { CheckStatus, ServiceCreateInput, ServiceStatus, ServiceUpdateInput } from '@beacon/shared';
 import { db } from '../index';
-import { serviceChecks, services, type Service } from '../schema';
+import { serviceChecks, services, type Service, type ServiceCheck } from '../schema';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(s: string): boolean {
@@ -112,5 +112,35 @@ export async function applyCheckResult(args: {
         ...(statusChanged ? { currentStatus: args.newStatus, currentStatusSince: now } : {}),
       })
       .where(eq(services.id, args.service.id));
+    if (statusChanged) {
+      const event = {
+        type: 'service.status_changed' as const,
+        serviceId: args.service.id,
+        userId: args.service.userId,
+        status: args.newStatus,
+        previousStatus: args.service.currentStatus,
+        occurredAt: now.toISOString(),
+      };
+      await tx.execute(sql`select pg_notify('beacon_events', ${JSON.stringify(event)})`);
+    }
   });
+}
+
+export async function listChecks(userId: string, serviceId: string, limit: number): Promise<ServiceCheck[]> {
+  const owned = await getService(userId, serviceId);
+  if (!owned) return [];
+  return db
+    .select()
+    .from(serviceChecks)
+    .where(eq(serviceChecks.serviceId, serviceId))
+    .orderBy(desc(serviceChecks.checkedAt))
+    .limit(limit);
+}
+
+export async function deleteChecksOlderThan(days: number): Promise<number> {
+  const rows = await db
+    .delete(serviceChecks)
+    .where(lt(serviceChecks.checkedAt, sql`now() - make_interval(days => ${days})`))
+    .returning({ id: serviceChecks.id });
+  return rows.length;
 }

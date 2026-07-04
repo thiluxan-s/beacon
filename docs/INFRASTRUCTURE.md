@@ -52,7 +52,7 @@ CLERK_SECRET_KEY=sk_live_or_test_xxx
 CLERK_WEBHOOK_SECRET=whsec_xxx
 ```
 
-The integration credentials key (`INTEGRATIONS_ENCRYPTION_KEY`), Resend email vars (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`), and the WebSocket URL (`NEXT_PUBLIC_WS_URL`) arrive in later phases as those features land, and will be appended to this file then. `POSTGRES_PASSWORD` and `INTERNAL_API_SECRET` are each generated once with `openssl rand -base64 32`. When the integrations key is introduced, note that losing it means losing access to all encrypted integration credentials in the database — they'd need to be reconfigured — so document a rotation procedure here.
+The WebSocket URL (`NEXT_PUBLIC_WS_URL`, e.g. `wss://api.beacon.thiluxan.com/ws`) landed in Phase 3b. Because it is a `NEXT_PUBLIC_*` var, it is inlined into the web bundle at **build time** — it is baked into the web image by the CI build-arg (see the deploy workflow), not read from `/opt/beacon/.env` at runtime, so it does not appear in the list above. The integration credentials key (`INTEGRATIONS_ENCRYPTION_KEY`) and Resend email vars (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`) arrive in later phases as those features land, and will be appended to this file then. `POSTGRES_PASSWORD` and `INTERNAL_API_SECRET` are each generated once with `openssl rand -base64 32`. When the integrations key is introduced, note that losing it means losing access to all encrypted integration credentials in the database — they'd need to be reconfigured — so document a rotation procedure here.
 
 ---
 
@@ -134,6 +134,14 @@ Image strategy:
 - Deploy = update the image tag in the Compose file and `docker compose pull && docker compose up -d`.
 
 Local development uses `docker-compose.dev.yml` (overrides) which builds locally and mounts source for hot reload. Production uses pulled images.
+
+The worker also runs a daily maintenance pass: once per 24h it prunes `service_checks` rows older than 30 days so the history table stays bounded. This is best-effort — a failure is logged and never crashes the poll loop.
+
+---
+
+### Real-time (WebSockets)
+
+The API host also serves a WebSocket endpoint at `wss://api.beacon.thiluxan.com/ws` (Caddy upgrades it automatically via the `reverse_proxy` directive — no extra Caddy config). Clients authenticate with their Clerk session token passed as a `?token=` query param, verified server-side via `@clerk/backend` (`CLERK_SECRET_KEY`). Status changes reach clients through Postgres `LISTEN/NOTIFY`: on a status change the worker emits `pg_notify('beacon_events', …)` inside the same transaction that writes the status, and the server's dedicated `LISTEN beacon_events` connection relays each event, in memory, to the subscribed sockets — filtered to the owning user and to the `global` / `service:<id>` topic. This slice adds **no new Compose service** (the WS lives in the existing `server` process) and no new runtime secret on the VPS; `CLERK_SECRET_KEY` is already present and `NEXT_PUBLIC_WS_URL` is baked into the web image at build time.
 
 ---
 
