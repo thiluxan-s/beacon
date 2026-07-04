@@ -185,7 +185,7 @@ This is a monorepo. Use npm workspaces (or pnpm if Claude Code argues for it con
 
 Read the Architecture doc's Integration Layer section for the full design. Key conventions:
 
-- Each integration is a class implementing the `MonitoringIntegration` interface in `apps/server/src/integrations/types.ts`.
+- Each integration is an object implementing the `IntegrationDefinition` interface in `apps/server/src/integrations/types.ts`. One file per integration; register it in `IntegrationRegistry` (`registry.ts`) with a single map entry.
 - One file per integration: `apps/server/src/integrations/vercel.ts`, `github.ts`, etc.
 - Integrations register themselves in a central `IntegrationRegistry` at startup.
 - Adding a new integration in the future is **always** a "drop a new file + register it" operation. If a new integration requires changing core code outside `integrations/`, the abstraction is wrong — pause and reconsider.
