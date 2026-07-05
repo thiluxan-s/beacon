@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { currentUser } from '@clerk/nextjs/server';
 import { notFound } from 'next/navigation';
 
-import { fetchIntegrations, fetchService, fetchServiceChecks } from '@/lib/services-api';
+import { fetchAvailableIntegrations, fetchIntegrations, fetchService, fetchServiceChecks } from '@/lib/services-api';
 import { ServiceStatusLive } from '@/components/services/service-status-live';
 import { IntegrationAttachDialog } from '@/components/services/integration-attach-dialog';
 import { VercelIntegrationCard } from '@/components/services/vercel-integration-card';
@@ -44,6 +44,7 @@ export default async function ServiceDetailPage({
 
   const checks = await fetchServiceChecks(user.id, serviceId, 50);
   const integrations = await fetchIntegrations(user.id, serviceId);
+  const available = await fetchAvailableIntegrations(user.id);
 
   const endpoint = `${service.baseUrl}${service.healthCheckPath === '/' ? '' : service.healthCheckPath}`;
 
@@ -100,7 +101,7 @@ export default async function ServiceDetailPage({
               </span>
             )}
           </div>
-          <IntegrationAttachDialog serviceId={service.id} />
+          <IntegrationAttachDialog serviceId={service.id} available={available} />
         </div>
 
         {integrations.length === 0 ? (

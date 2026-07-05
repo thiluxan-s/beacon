@@ -134,3 +134,19 @@ export async function removeIntegration(clerkUserId: string, serviceId: string, 
   });
   if (!res.ok && res.status !== 404) throw new Error(`removeIntegration failed: ${res.status}`);
 }
+
+export type IntegrationField = {
+  name: string;
+  label: string;
+  type: 'text' | 'password';
+  section: 'credentials' | 'config';
+  placeholder?: string;
+  optional?: boolean;
+};
+export type AvailableIntegration = { id: string; name: string; fields: IntegrationField[] };
+
+export async function fetchAvailableIntegrations(clerkUserId: string): Promise<AvailableIntegration[]> {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/integrations`, { headers: headers(clerkUserId), cache: 'no-store' });
+  if (!res.ok) throw new Error(`fetchAvailableIntegrations failed: ${res.status}`);
+  return (await res.json()).integrations as AvailableIntegration[];
+}
