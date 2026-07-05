@@ -62,6 +62,8 @@ The central entity. Every monitored thing is a service.
   next_check_at: timestamptz (nullable)
   paused: boolean (default false)
   alerts_enabled: boolean (default true)
+  consecutive_failures: integer (default 0)     // strike counter powering 2-check debounce (Phase 5a)
+  consecutive_successes: integer (default 0)    // strike counter powering 2-check debounce (Phase 5a)
   created_at: timestamptz
   updated_at: timestamptz
 }
@@ -139,7 +141,7 @@ When a service transitions to a bad state, an incident is opened. When it recove
 }
 ```
 
-**Indexes:** `(service_id, started_at DESC)` for the per-service incident history; `(resolved_at IS NULL)` partial index for "show me current incidents."
+**Indexes:** `(service_id, started_at DESC)` for the per-service incident history; a **partial unique index** on `(service_id) WHERE resolved_at IS NULL` — this isn't just a query aid, it's a database-enforced invariant that a service can have at most one open (unresolved) incident at a time.
 
 **Flapping protection:** Don't open a new incident until 2 consecutive failed checks. Don't close until 2 consecutive successful checks. This avoids alert noise from transient failures.
 
