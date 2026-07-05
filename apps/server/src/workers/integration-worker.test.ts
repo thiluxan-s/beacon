@@ -16,6 +16,7 @@ function fakeDef(behavior: 'ok' | 'throw'): IntegrationDefinition {
     name: 'Faker',
     credentialsSchema: z.object({ apiToken: z.string() }),
     configSchema: z.object({}),
+    fields: [{ name: 'apiToken', label: 'API token', type: 'password', section: 'credentials' }],
     async testCredentials() { return { ok: true }; },
     async fetchData() {
       if (behavior === 'throw') throw new Error('kaboom');

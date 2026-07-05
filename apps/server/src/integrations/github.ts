@@ -33,6 +33,11 @@ export const githubIntegration: IntegrationDefinition<GithubCredentials, GithubC
   name: 'GitHub',
   credentialsSchema: GithubCredentialsSchema,
   configSchema: GithubConfigSchema,
+  fields: [
+    { name: 'token', label: 'Personal access token', type: 'password', section: 'credentials', placeholder: '••••••••••••' },
+    { name: 'owner', label: 'Owner', type: 'text', section: 'config', placeholder: 'thiluxan-s' },
+    { name: 'repo', label: 'Repository', type: 'text', section: 'config', placeholder: 'beacon' },
+  ],
 
   async testCredentials(credentials, config) {
     try {

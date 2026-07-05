@@ -18,6 +18,11 @@ export const vercelIntegration: IntegrationDefinition<VercelCredentials, VercelC
   name: 'Vercel',
   credentialsSchema: VercelCredentialsSchema,
   configSchema: VercelConfigSchema,
+  fields: [
+    { name: 'apiToken', label: 'API token', type: 'password', section: 'credentials', placeholder: '••••••••••••' },
+    { name: 'projectId', label: 'Project ID', type: 'text', section: 'config', placeholder: 'prj_abc123' },
+    { name: 'teamId', label: 'Team ID', type: 'text', section: 'config', placeholder: 'team_abc123', optional: true },
+  ],
 
   async testCredentials(credentials) {
     try {
