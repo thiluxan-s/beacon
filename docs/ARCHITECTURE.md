@@ -224,6 +224,24 @@ broadcast({ type: 'service.status_changed', topic: `service:${id}`, payload: { .
 
 The broadcast helper iterates connections subscribed to that topic and sends the message. No queue, no fan-out service — just in-memory iteration. Single-process simplicity.
 
+### Server-side event types
+
+The following events are emitted server→client over WebSocket:
+
+1. **`service.status_changed`** — Status of a service changed (up ↔ down ↔ degraded).
+   - Carries: `serviceId`, `userId`, `status`, `previousStatus`, `occurredAt`.
+   - Routes via topic: `service:<serviceId>`.
+
+2. **`incident.opened`** — A new incident opened on a service (e.g., service went down).
+   - Carries: `incidentId`, `serviceId`, `userId`, `severity` (currently always `'down'`), `startedAt`, `occurredAt`.
+   - Routes via: `serviceId`/`userId` to the existing hub; no changes to `connections.ts`.
+
+3. **`incident.resolved`** — An open incident was resolved (service came back up).
+   - Carries: `incidentId`, `serviceId`, `userId`, `durationSeconds` (nonnegative integer), `resolvedAt`, `occurredAt`.
+   - Routes via: `serviceId`/`userId` to the existing hub; no changes to `connections.ts`.
+
+Events 2 and 3 are discriminated by the `type` field and validated via Zod schema in `packages/shared/src/schemas/ws-event.ts`.
+
 ### Reliability
 
 - Heartbeat: server sends a ping every 30s. Client responds with pong. Two missed heartbeats = server closes the connection.

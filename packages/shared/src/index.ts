@@ -10,6 +10,9 @@ export {
   type ServiceUpdateInput,
 } from './schemas/service';
 export {
+  ServiceStatusChangedSchema,
+  IncidentOpenedSchema,
+  IncidentResolvedSchema,
   WsEventSchema,
   WsClientMessageSchema,
   type WsEvent,
