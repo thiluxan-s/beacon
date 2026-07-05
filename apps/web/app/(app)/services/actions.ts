@@ -73,38 +73,24 @@ export async function pauseServiceAction(id: string, paused: boolean): Promise<R
   }
 }
 
-export async function attachVercelAction(
+export async function attachIntegrationAction(
   serviceId: string,
-  input: { apiToken: string; projectId: string; teamId?: string },
+  integrationId: string,
+  body: { credentials: Record<string, unknown>; config: Record<string, unknown> },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const user = await currentUser();
     if (!user) return { ok: false, error: 'Not signed in' };
-    const config: Record<string, unknown> = { projectId: input.projectId };
-    if (input.teamId) config.teamId = input.teamId;
-    const res = await attachIntegration(user.id, serviceId, { integrationId: 'vercel', config, credentials: { apiToken: input.apiToken } });
+    const res = await attachIntegration(user.id, serviceId, {
+      integrationId,
+      config: body.config,
+      credentials: body.credentials,
+    });
     if (res.ok) revalidatePath(`/services/${serviceId}`);
     return res;
   } catch (err) {
-    console.error('[beacon-web] attachVercelAction failed', err);
-    return { ok: false, error: 'Could not attach Vercel integration.' };
-  }
-}
-
-export async function attachGithubAction(
-  serviceId: string,
-  input: { token: string; owner: string; repo: string },
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  try {
-    const user = await currentUser();
-    if (!user) return { ok: false, error: 'Not signed in' };
-    const config: Record<string, unknown> = { owner: input.owner, repo: input.repo };
-    const res = await attachIntegration(user.id, serviceId, { integrationId: 'github', config, credentials: { token: input.token } });
-    if (res.ok) revalidatePath(`/services/${serviceId}`);
-    return res;
-  } catch (err) {
-    console.error('[beacon-web] attachGithubAction failed', err);
-    return { ok: false, error: 'Could not attach GitHub integration.' };
+    console.error('[beacon-web] attachIntegrationAction failed', err);
+    return { ok: false, error: 'Could not attach integration.' };
   }
 }
 

@@ -6,6 +6,7 @@ import { env } from './lib/env';
 import { getByClerkId, upsertFromClerk } from './db/repositories/users';
 import { createService, deleteService, getService, listChecks, listServicesByUser, setPaused, updateService } from './db/repositories/services';
 import { IntegrationRegistry } from './integrations/registry';
+import type { IntegrationDefinition } from './integrations/types';
 import { encrypt } from './lib/crypto';
 import { upsertIntegration, listIntegrations, deleteIntegration } from './db/repositories/service-integrations';
 import type { ServiceIntegration } from './db/repositories/service-integrations';
@@ -27,6 +28,10 @@ function toIntegrationDto(row: ServiceIntegration) {
     lastError: row.lastError,
     snapshot: row.lastSnapshot ?? null,
   };
+}
+
+function toCatalogDto(def: IntegrationDefinition) {
+  return { id: def.id, name: def.name, fields: def.fields };
 }
 
 export function createRouter(): Hono {
@@ -164,6 +169,15 @@ export function createRouter(): Hono {
     if (!userId) return c.json({ error: 'unknown user' }, 401);
     const ok = await deleteIntegration(userId, c.req.param('id'), c.req.param('integrationId'));
     return ok ? c.body(null, 204) : c.json({ error: 'not found' }, 404);
+  });
+
+  app.get('/internal/integrations', async (c) => {
+    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    return c.json({ integrations: [...IntegrationRegistry.values()].map(toCatalogDto) });
   });
 
   app.post('/internal/services/:id/pause', async (c) => {
