@@ -77,4 +77,25 @@ describe('integration routes', () => {
     const del = await app.request(`/internal/services/${id}/integrations/vercel`, { method: 'DELETE', headers: H('u_ir') });
     expect(del.status).toBe(204);
   });
+
+  it('GET /internal/integrations returns the catalog without schemas or credentials', async () => {
+    await upsertFromClerk({ clerkUserId: 'u_cat', email: 'cat@e.com' });
+    const res = await app.request('/internal/integrations', { headers: H('u_cat') });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { integrations: Array<{ id: string; fields: Array<{ name: string }> }> };
+    const ids = body.integrations.map((i: { id: string }) => i.id);
+    expect(ids).toContain('vercel');
+    expect(ids).toContain('github');
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain('credentialsSchema');
+    expect(raw).not.toContain('configSchema');
+    const vercel = body.integrations.find((i: { id: string }) => i.id === 'vercel');
+    if (!vercel) throw new Error('vercel not found in integrations');
+    expect(vercel.fields.some((f: { name: string }) => f.name === 'apiToken')).toBe(true);
+  });
+
+  it('GET /internal/integrations is 401 without the internal secret', async () => {
+    const res = await app.request('/internal/integrations', { headers: { 'x-clerk-user-id': 'u_cat' } });
+    expect(res.status).toBe(401);
+  });
 });
