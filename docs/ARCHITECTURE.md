@@ -174,7 +174,7 @@ A service has many service_integrations (one per platform). Each holds the encry
 
 ### Adding a new integration in the future
 
-The promise of the abstraction: a new integration is one file plus one line.
+The promise of the abstraction on the **server**: a new integration is one file plus one line.
 
 ```ts
 // apps/server/src/integrations/railway.ts
@@ -183,7 +183,7 @@ export const railwayIntegration: IntegrationDefinition = {
   name: 'Railway',
   credentialsSchema: z.object({ apiToken: z.string().min(1) }),
   configSchema: z.object({ projectId: z.string(), environmentId: z.string() }),
-  async testCredentials(creds) { /* ... */ },
+  async testCredentials(creds, config) { /* hit an auth'd endpoint; validate resource access */ },
   async fetchData(creds, config) { /* ... */ },
 };
 
@@ -192,9 +192,17 @@ import { railwayIntegration } from './railway';
 // ...add to the Map.
 ```
 
-That's the entire change. No DB schema migrations. No new UI components (the existing "configure integration" UI reads from the registry and renders forms from the Zod schemas). No new routes.
+On the server that is the entire change: no DB schema migrations, no new routes, no worker change. `testCredentials` receives both credentials and config, so it can validate resource access (e.g. that a token can see a specific repo/project) at attach time, not just that the token is valid.
 
-**If a future integration requires changing core code outside `integrations/`, the abstraction is wrong — pause and reconsider.**
+### How to add an integration (the runbook GitHub followed)
+
+1. **`apps/server/src/integrations/<name>.ts`** — implement `IntegrationDefinition` (Zod `credentialsSchema` + `configSchema`, `testCredentials`, `fetchData` returning a snapshot). Confirm the third-party API's current endpoints/fields before coding.
+2. **`apps/server/src/integrations/registry.ts`** — one import + one Map entry.
+3. **UI (until the 4b schema-driven form lands):** add a per-integration card `apps/web/components/services/<name>-integration-card.tsx` that narrows and renders `snapshot`; add a `KINDS` entry (label + fields + `submit` action) in `apps/web/components/services/integration-attach-dialog.tsx`; add an `attach<Name>Action` server action; and add a render branch on the service detail page (`app/(app)/services/[serviceId]/page.tsx`). The existing Remove control is integration-agnostic and needs no change.
+
+Steps 1–2 are the durable "drop a file + register" contract. Step 3 is per-integration presentation; **4b** will make the attach form render directly from each integration's Zod schema, collapsing most of it.
+
+**If a future integration requires changing core code outside `integrations/` (beyond the registry entry and its own card/dialog entry), the abstraction is wrong — pause and reconsider.**
 
 ## WebSocket layer
 
