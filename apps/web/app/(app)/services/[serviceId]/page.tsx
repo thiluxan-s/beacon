@@ -7,6 +7,7 @@ import { fetchIntegrations, fetchService, fetchServiceChecks } from '@/lib/servi
 import { ServiceStatusLive } from '@/components/services/service-status-live';
 import { IntegrationAttachDialog } from '@/components/services/integration-attach-dialog';
 import { VercelIntegrationCard } from '@/components/services/vercel-integration-card';
+import { GithubIntegrationCard } from '@/components/services/github-integration-card';
 import { removeIntegrationAction } from '@/app/(app)/services/actions';
 
 // Check-status → project --color-status-* tokens (globals.css @theme)
@@ -108,8 +109,15 @@ export default async function ServiceDetailPage({
           </p>
         ) : (
           <div className="space-y-3 px-5 pb-4">
-            {integrations.map((integration) =>
-              integration.integrationId === 'vercel' ? (
+            {integrations.map((integration) => {
+              const card =
+                integration.integrationId === 'vercel' ? (
+                  <VercelIntegrationCard integration={integration} />
+                ) : integration.integrationId === 'github' ? (
+                  <GithubIntegrationCard integration={integration} />
+                ) : null;
+              if (!card) return null;
+              return (
                 <div key={integration.integrationId}>
                   <div className="flex items-center justify-end pb-1">
                     <form action={removeVercelIntegration.bind(null, service.id, integration.integrationId)}>
@@ -121,10 +129,10 @@ export default async function ServiceDetailPage({
                       </button>
                     </form>
                   </div>
-                  <VercelIntegrationCard integration={integration} />
+                  {card}
                 </div>
-              ) : null,
-            )}
+              );
+            })}
           </div>
         )}
       </section>

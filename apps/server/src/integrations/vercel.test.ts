@@ -20,12 +20,12 @@ describe('vercelIntegration', () => {
 
   it('testCredentials ok on 200', async () => {
     stubFetch(() => new Response('{"projects":[]}', { status: 200 }));
-    expect(await vercelIntegration.testCredentials(creds)).toEqual({ ok: true });
+    expect(await vercelIntegration.testCredentials(creds, config)).toEqual({ ok: true });
   });
 
   it('testCredentials error on 401', async () => {
     stubFetch(() => new Response('unauthorized', { status: 401 }));
-    const r = await vercelIntegration.testCredentials(creds);
+    const r = await vercelIntegration.testCredentials(creds, config);
     expect(r.ok).toBe(false);
   });
 

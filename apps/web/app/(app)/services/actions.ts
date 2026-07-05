@@ -91,6 +91,23 @@ export async function attachVercelAction(
   }
 }
 
+export async function attachGithubAction(
+  serviceId: string,
+  input: { token: string; owner: string; repo: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const user = await currentUser();
+    if (!user) return { ok: false, error: 'Not signed in' };
+    const config: Record<string, unknown> = { owner: input.owner, repo: input.repo };
+    const res = await attachIntegration(user.id, serviceId, { integrationId: 'github', config, credentials: { token: input.token } });
+    if (res.ok) revalidatePath(`/services/${serviceId}`);
+    return res;
+  } catch (err) {
+    console.error('[beacon-web] attachGithubAction failed', err);
+    return { ok: false, error: 'Could not attach GitHub integration.' };
+  }
+}
+
 export async function removeIntegrationAction(serviceId: string, integrationId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const user = await currentUser();
