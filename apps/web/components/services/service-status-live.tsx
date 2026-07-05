@@ -4,16 +4,8 @@ import { useCallback, useState } from 'react';
 
 import type { ServiceStatus, WsEvent } from '@beacon/shared';
 
+import { STATUS_STYLE } from '@/lib/status-style';
 import { useServiceStatusSubscription } from '@/lib/use-ws';
-
-// Use the project's custom --color-status-* tokens from globals.css @theme
-const STATUS_STYLE: Record<string, { text: string; dot: string; pulse: boolean }> = {
-  up:       { text: 'text-status-up',       dot: 'bg-status-up',       pulse: true  },
-  down:     { text: 'text-status-down',     dot: 'bg-status-down',     pulse: false },
-  degraded: { text: 'text-status-degraded', dot: 'bg-status-degraded', pulse: false },
-  paused:   { text: 'text-status-paused',   dot: 'bg-status-paused',   pulse: false },
-  pending:  { text: 'text-zinc-400',        dot: 'bg-zinc-300',        pulse: false },
-};
 
 export function ServiceStatusLive({
   serviceId,

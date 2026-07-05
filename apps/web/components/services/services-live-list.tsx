@@ -7,24 +7,9 @@ import type { WsEvent } from '@beacon/shared';
 
 import type { ServiceDto } from '@/lib/services-api';
 import { ServiceRowActions } from '@/components/services/service-row-actions';
+import { relativeTime } from '@/lib/relative-time';
+import { STATUS_STYLE } from '@/lib/status-style';
 import { useServiceStatusSubscription } from '@/lib/use-ws';
-
-// Use the project's custom --color-status-* tokens from globals.css @theme
-const STATUS_STYLE: Record<string, { text: string; dot: string; pulse: boolean }> = {
-  up:       { text: 'text-status-up',      dot: 'bg-status-up',      pulse: true  },
-  down:     { text: 'text-status-down',    dot: 'bg-status-down',    pulse: false },
-  degraded: { text: 'text-status-degraded',dot: 'bg-status-degraded',pulse: false },
-  paused:   { text: 'text-status-paused',  dot: 'bg-status-paused',  pulse: false },
-  pending:  { text: 'text-zinc-400',       dot: 'bg-zinc-300',       pulse: false },
-};
-
-function lastChecked(s: ServiceDto): string {
-  if (!s.lastCheckAt) return '—';
-  const secs = Math.round((Date.now() - new Date(s.lastCheckAt).getTime()) / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-  return `${Math.round(secs / 3600)}h ago`;
-}
 
 function statusCounts(services: ServiceDto[]) {
   return services.reduce(
@@ -167,7 +152,7 @@ export function ServicesLiveList({ initial }: { initial: ServiceDto[] }) {
                 className="w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400"
                 suppressHydrationWarning
               >
-                {lastChecked(s)}
+                {relativeTime(s.lastCheckAt)}
               </span>
 
               {/* Row actions — revealed on hover (Linear/Vercel pattern) */}

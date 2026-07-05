@@ -111,7 +111,7 @@ export default async function ServiceDetailPage({
               return (
                 <div key={integration.integrationId}>
                   <div className="flex items-center justify-end pb-1">
-                    <form action={removeVercelIntegration.bind(null, service.id, integration.integrationId)}>
+                    <form action={removeIntegrationInline.bind(null, service.id, integration.integrationId)}>
                       <button
                         type="submit"
                         className="font-mono text-[10px] uppercase tracking-[0.1em] text-zinc-400 transition-colors hover:text-status-down"
@@ -217,8 +217,9 @@ export default async function ServiceDetailPage({
 
 // Thin wrapper so the form action satisfies Next's `(formData) => void | Promise<void>`
 // signature — removeIntegrationAction itself returns a Result the caller can inspect,
-// but this control has no client-side state to surface an error into (4b design pass).
-async function removeVercelIntegration(serviceId: string, integrationId: string): Promise<void> {
+// but this control has no client-side state to surface an error into. Integration-
+// agnostic: takes the integrationId, so it serves every integration's Remove button.
+async function removeIntegrationInline(serviceId: string, integrationId: string): Promise<void> {
   'use server';
   await removeIntegrationAction(serviceId, integrationId);
 }
