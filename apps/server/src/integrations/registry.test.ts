@@ -32,10 +32,24 @@ describe('integration field descriptors match their Zod schemas', () => {
         for (const name of configFieldNames) expect(keys).toContain(name);
       });
 
-      it('every required schema key has a corresponding field', () => {
-        const fieldNames = def.fields.map((f) => f.name);
-        for (const { key, optional } of [...credKeys, ...configKeys]) {
-          if (!optional) expect(fieldNames).toContain(key);
+      it('every required credentials schema key has a corresponding credentials field', () => {
+        for (const { key, optional } of credKeys) {
+          if (!optional) expect(credFieldNames).toContain(key);
+        }
+      });
+
+      it('every required config schema key has a corresponding config field', () => {
+        for (const { key, optional } of configKeys) {
+          if (!optional) expect(configFieldNames).toContain(key);
+        }
+      });
+
+      it('every field optional flag matches its schema key optionality', () => {
+        for (const field of def.fields) {
+          const sectionKeys = field.section === 'credentials' ? credKeys : configKeys;
+          const match = sectionKeys.find((k) => k.key === field.name);
+          expect(match, `expected a ${field.section} schema key for field "${field.name}"`).toBeDefined();
+          expect(field.optional === true).toBe(match!.optional);
         }
       });
     });
