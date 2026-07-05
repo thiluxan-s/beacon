@@ -1,3 +1,4 @@
+import { relativeTime } from '@/lib/relative-time';
 import type { IntegrationDto } from '@/lib/services-api';
 
 // GitHub CI status → project --color-status-* tokens (globals.css @theme).
@@ -60,15 +61,6 @@ function parseSnapshot(snapshot: Record<string, unknown> | null): {
 
   const ciStatus = typeof snapshot.ciStatus === 'string' ? snapshot.ciStatus : null;
   return { ciStatus, workflowRuns, commits };
-}
-
-function relativeTime(iso: string | null): string {
-  if (!iso) return '—';
-  const secs = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
-  return `${Math.round(secs / 86400)}d ago`;
 }
 
 // ✓ for a successful conclusion, ✗ for a failing one, • otherwise (running/neutral).

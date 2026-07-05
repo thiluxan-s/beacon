@@ -1,3 +1,4 @@
+import { relativeTime } from '@/lib/relative-time';
 import type { IntegrationDto } from '@/lib/services-api';
 
 // Vercel deployment `state` → project --color-status-* tokens (globals.css @theme).
@@ -44,17 +45,6 @@ function parseSnapshot(snapshot: Record<string, unknown> | null): {
   const productionStatus = typeof snapshot.productionStatus === 'string' ? snapshot.productionStatus : null;
 
   return { deployments, productionStatus };
-}
-
-// Relative time — matches the detail page's Xs/Xm/Xh/Xd ago style. Computed
-// once on the server (this is a Server Component), so no hydration guard needed.
-function relativeTime(iso: string | null): string {
-  if (!iso) return '—';
-  const secs = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
-  return `${Math.round(secs / 86400)}d ago`;
 }
 
 export function VercelIntegrationCard({ integration }: { integration: IntegrationDto }) {

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { currentUser } from '@clerk/nextjs/server';
 import { notFound } from 'next/navigation';
 
+import { relativeTime } from '@/lib/relative-time';
 import { fetchAvailableIntegrations, fetchIntegrations, fetchService, fetchServiceChecks } from '@/lib/services-api';
 import { ServiceStatusLive } from '@/components/services/service-status-live';
 import { IntegrationAttachDialog } from '@/components/services/integration-attach-dialog';
@@ -17,17 +18,6 @@ const CHECK_STYLE: Record<string, { text: string; dot: string }> = {
   timeout: { text: 'text-status-degraded', dot: 'bg-status-degraded' },
   error:   { text: 'text-status-down',     dot: 'bg-status-down' },
 };
-
-// Relative time — matches the dashboard's Xs/Xm/Xh ago style. Computed once on
-// the server (this is a Server Component), so no hydration guard is required.
-function relativeTime(iso: string | null): string {
-  if (!iso) return '—';
-  const secs = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
-  return `${Math.round(secs / 86400)}d ago`;
-}
 
 export default async function ServiceDetailPage({
   params,
