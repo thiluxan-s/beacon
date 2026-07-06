@@ -119,4 +119,16 @@ describe('services repository (integration)', () => {
     expect(inc.resolvedAt).not.toBeNull();
     expect(inc.durationSeconds).not.toBeNull();
   });
+
+  it('pausing a service with an open incident auto-resolves it with a note', async () => {
+    const userId = await makeUser('pause');
+    const svc = await createService(userId, { name: 'S', baseUrl: 'https://s.com', healthCheckPath: '/', expectedStatusCodes: [200], checkIntervalSeconds: 60, timeoutSeconds: 10 });
+    const s = await apply(svc, 'down', 500);
+    await apply(s, 'down', 500);              // opens
+    await setPaused(userId, svc.id, true);
+    const inc = (await db.select().from(incidents).where(eq(incidents.serviceId, svc.id)))[0]!;
+    expect(inc.resolvedAt).not.toBeNull();
+    const evs = await db.select().from(incidentEvents).where(eq(incidentEvents.incidentId, inc.id));
+    expect(evs.some((e) => e.eventType === 'note' && /paused/i.test(e.message))).toBe(true);
+  });
 });

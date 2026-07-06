@@ -71,12 +71,46 @@ export async function deleteService(userId: string, id: string): Promise<boolean
 
 export async function setPaused(userId: string, id: string, paused: boolean): Promise<Service | null> {
   if (!isUuid(userId) || !isUuid(id)) return null;
-  const rows = await db
-    .update(services)
-    .set({ paused, currentStatus: paused ? 'paused' : 'pending', updatedAt: new Date() })
-    .where(and(eq(services.id, id), eq(services.userId, userId)))
-    .returning();
-  return rows[0] ?? null;
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .update(services)
+      .set({
+        paused,
+        currentStatus: paused ? 'paused' : 'pending',
+        consecutiveFailures: 0,
+        consecutiveSuccesses: 0,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(services.id, id), eq(services.userId, userId)))
+      .returning();
+    const svc = rows[0];
+    if (!svc) return null;
+
+    if (paused) {
+      const open = await findOpenIncident(tx, id);
+      if (open) {
+        const now = new Date();
+        const { durationSeconds } = await resolveIncident(tx, {
+          incidentId: open.id,
+          startedAt: open.startedAt,
+          resolvedAt: now,
+          resolutionCheckId: null,
+          closeEvent: { type: 'note', message: 'Resolved: monitoring paused' },
+        });
+        const payload = {
+          type: 'incident.resolved',
+          incidentId: open.id,
+          serviceId: id,
+          userId: svc.userId,
+          durationSeconds,
+          resolvedAt: now.toISOString(),
+          occurredAt: now.toISOString(),
+        } satisfies WsEvent;
+        await tx.execute(sql`select pg_notify('beacon_events', ${JSON.stringify(payload)})`);
+      }
+    }
+    return svc;
+  });
 }
 
 export async function findDueServices(limit: number): Promise<Service[]> {
