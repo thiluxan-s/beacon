@@ -25,7 +25,7 @@ describe('applyCheckResult pg_notify (integration)', () => {
     const received = new Promise<string>((resolve) => {
       listener.on('notification', (msg) => resolve(msg.payload ?? ''));
     });
-    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, newStatus: 'up' });
+    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, rawStatus: 'up' });
     const payload = JSON.parse(await received);
     expect(payload).toMatchObject({ type: 'service.status_changed', serviceId: svc.id, userId: svc.userId, status: 'up', previousStatus: 'pending' });
     await listener.end();
@@ -33,14 +33,14 @@ describe('applyCheckResult pg_notify (integration)', () => {
 
   it('emits NO notification when status is unchanged', async () => {
     const svc = await makeService();
-    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, newStatus: 'up' });
+    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, rawStatus: 'up' });
     const after = { ...svc, currentStatus: 'up' as const };
     const listener = new Client({ connectionString: process.env.DATABASE_URL });
     await listener.connect();
     await listener.query('LISTEN beacon_events');
     let got = false;
     listener.on('notification', () => { got = true; });
-    await applyCheckResult({ service: after, check: { status: 'success', statusCode: 200, responseTimeMs: 11, errorMessage: null }, newStatus: 'up' });
+    await applyCheckResult({ service: after, check: { status: 'success', statusCode: 200, responseTimeMs: 11, errorMessage: null }, rawStatus: 'up' });
     await new Promise((r) => setTimeout(r, 200));
     expect(got).toBe(false);
     await listener.end();

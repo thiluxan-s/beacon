@@ -1,7 +1,9 @@
 import { and, desc, eq, lt, lte, sql } from 'drizzle-orm';
-import type { CheckStatus, ServiceCreateInput, ServiceStatus, ServiceUpdateInput } from '@beacon/shared';
+import type { CheckStatus, ServiceCreateInput, ServiceUpdateInput } from '@beacon/shared';
 import { db } from '../index';
 import { serviceChecks, services, type Service, type ServiceCheck } from '../schema';
+import { decideTransition } from '../../workers/transition';
+import { findOpenIncident, openIncident, recordObservationIfChanged, resolveIncident, type IncidentDetail } from './incidents';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(s: string): boolean {
@@ -89,39 +91,91 @@ export async function findDueServices(limit: number): Promise<Service[]> {
 export async function applyCheckResult(args: {
   service: Service;
   check: { status: CheckStatus; statusCode: number | null; responseTimeMs: number | null; errorMessage: string | null };
-  newStatus: ServiceStatus;
+  rawStatus: 'up' | 'down';
 }): Promise<void> {
   const now = new Date();
   const next = new Date(now.getTime() + args.service.checkIntervalSeconds * 1000);
-  const statusChanged = args.newStatus !== args.service.currentStatus;
+
+  const consecutiveFailures = args.rawStatus === 'down' ? args.service.consecutiveFailures + 1 : 0;
+  const consecutiveSuccesses = args.rawStatus === 'up' ? args.service.consecutiveSuccesses + 1 : 0;
+
+  const decision = decideTransition({
+    currentStatus: args.service.currentStatus,
+    consecutiveFailures,
+    consecutiveSuccesses,
+    rawStatus: args.rawStatus,
+  });
+  const statusChanged = decision.nextStatus !== args.service.currentStatus;
+  const detail: IncidentDetail = {
+    status: args.check.status,
+    statusCode: args.check.statusCode,
+    errorMessage: args.check.errorMessage,
+  };
+
+  const notifies: string[] = [];
+
   await db.transaction(async (tx) => {
-    await tx.insert(serviceChecks).values({
-      serviceId: args.service.id,
-      status: args.check.status,
-      statusCode: args.check.statusCode,
-      responseTimeMs: args.check.responseTimeMs,
-      errorMessage: args.check.errorMessage,
-      checkedAt: now,
-    });
+    const inserted = await tx
+      .insert(serviceChecks)
+      .values({
+        serviceId: args.service.id,
+        status: args.check.status,
+        statusCode: args.check.statusCode,
+        responseTimeMs: args.check.responseTimeMs,
+        errorMessage: args.check.errorMessage,
+        checkedAt: now,
+      })
+      .returning({ id: serviceChecks.id });
+    const checkId = inserted[0]!.id;
+
     await tx
       .update(services)
       .set({
         lastCheckAt: now,
         nextCheckAt: next,
         updatedAt: now,
-        ...(statusChanged ? { currentStatus: args.newStatus, currentStatusSince: now } : {}),
+        consecutiveFailures,
+        consecutiveSuccesses,
+        ...(statusChanged ? { currentStatus: decision.nextStatus, currentStatusSince: now } : {}),
       })
       .where(eq(services.id, args.service.id));
+
     if (statusChanged) {
-      const event = {
-        type: 'service.status_changed' as const,
+      notifies.push(JSON.stringify({
+        type: 'service.status_changed',
         serviceId: args.service.id,
         userId: args.service.userId,
-        status: args.newStatus,
+        status: decision.nextStatus,
         previousStatus: args.service.currentStatus,
         occurredAt: now.toISOString(),
-      };
-      await tx.execute(sql`select pg_notify('beacon_events', ${JSON.stringify(event)})`);
+      }));
+    }
+
+    if (decision.incidentAction === 'open') {
+      const inc = await openIncident(tx, { serviceId: args.service.id, startedAt: now, triggerCheckId: checkId, detail });
+      notifies.push(JSON.stringify({
+        type: 'incident.opened', incidentId: inc.id, serviceId: args.service.id, userId: args.service.userId,
+        severity: 'down', startedAt: now.toISOString(), occurredAt: now.toISOString(),
+      }));
+    } else if (decision.incidentAction === 'resolve') {
+      const open = await findOpenIncident(tx, args.service.id);
+      if (open) {
+        const { durationSeconds } = await resolveIncident(tx, {
+          incidentId: open.id, startedAt: open.startedAt, resolvedAt: now, resolutionCheckId: checkId,
+          closeEvent: { type: 'resolved', message: 'Service recovered' },
+        });
+        notifies.push(JSON.stringify({
+          type: 'incident.resolved', incidentId: open.id, serviceId: args.service.id, userId: args.service.userId,
+          durationSeconds, resolvedAt: now.toISOString(), occurredAt: now.toISOString(),
+        }));
+      }
+    } else if (args.rawStatus === 'down') {
+      const open = await findOpenIncident(tx, args.service.id);
+      if (open) await recordObservationIfChanged(tx, { incidentId: open.id, detail, occurredAt: now });
+    }
+
+    for (const payload of notifies) {
+      await tx.execute(sql`select pg_notify('beacon_events', ${payload})`);
     }
   });
 }

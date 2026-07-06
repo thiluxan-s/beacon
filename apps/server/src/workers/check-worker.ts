@@ -52,7 +52,7 @@ export async function checkOne(service: Service, deps: CheckDeps = {}): Promise<
   await apply({
     service,
     check: { status: r.status, statusCode: r.statusCode, responseTimeMs: r.responseTimeMs, errorMessage: r.errorMessage },
-    newStatus: r.serviceStatus,
+    rawStatus: r.serviceStatus,
   });
 }
 

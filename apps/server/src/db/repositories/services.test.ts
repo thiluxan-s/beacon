@@ -1,7 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { pool } from '../index';
+import { eq } from 'drizzle-orm';
+import { db, pool } from '../index';
+import { incidentEvents, incidents, services } from '../schema';
 import { upsertFromClerk } from './users';
 import {
+  applyCheckResult,
   createService,
   deleteService,
   getService,
@@ -9,10 +12,21 @@ import {
   setPaused,
   updateService,
 } from './services';
+import type { Service } from '../schema';
 
 async function makeUser(clerkId = 'user_svc') {
   const u = await upsertFromClerk({ clerkUserId: clerkId, email: `${clerkId}@e.com` });
   return u.id;
+}
+
+async function apply(svc: Service, raw: 'up' | 'down', statusCode: number | null): Promise<Service> {
+  const fresh = (await db.select().from(services).where(eq(services.id, svc.id)))[0]!;
+  await applyCheckResult({
+    service: fresh,
+    check: { status: raw === 'up' ? 'success' : 'failure', statusCode, responseTimeMs: 5, errorMessage: null },
+    rawStatus: raw,
+  });
+  return (await db.select().from(services).where(eq(services.id, svc.id)))[0]!;
 }
 
 describe('services repository (integration)', () => {
@@ -64,5 +78,45 @@ describe('services repository (integration)', () => {
     expect(await deleteService('other-user', svc.id)).toBe(false);
     expect(await deleteService(userId, svc.id)).toBe(true);
     expect(await getService(userId, svc.id)).toBeNull();
+  });
+
+  it('fail/fail opens one incident and flips status to down', async () => {
+    const userId = await makeUser('seq');
+    const svc = await createService(userId, { name: 'S', baseUrl: 'https://s.com', healthCheckPath: '/', expectedStatusCodes: [200], checkIntervalSeconds: 60, timeoutSeconds: 10 });
+    let s = await apply(svc, 'up', 200);      // pending -> up
+    s = await apply(s, 'down', 500);          // strike 1, still up
+    expect(s.currentStatus).toBe('up');
+    s = await apply(s, 'down', 500);          // strike 2 -> down + open
+    expect(s.currentStatus).toBe('down');
+    const open = await db.select().from(incidents).where(eq(incidents.serviceId, svc.id));
+    expect(open).toHaveLength(1);
+    expect(open[0]!.resolvedAt).toBeNull();
+  });
+
+  it('records observed only when the failure code changes', async () => {
+    const userId = await makeUser('obs');
+    const svc = await createService(userId, { name: 'S', baseUrl: 'https://s.com', healthCheckPath: '/', expectedStatusCodes: [200], checkIntervalSeconds: 60, timeoutSeconds: 10 });
+    let s = await apply(svc, 'down', 500);
+    s = await apply(s, 'down', 500);          // opens
+    s = await apply(s, 'down', 500);          // same code -> no observed
+    await apply(s, 'down', 503);              // changed -> observed
+    const inc = (await db.select().from(incidents).where(eq(incidents.serviceId, svc.id)))[0]!;
+    const evs = await db.select().from(incidentEvents).where(eq(incidentEvents.incidentId, inc.id));
+    const observed = evs.filter((e) => e.eventType === 'observed');
+    expect(observed).toHaveLength(1);
+  });
+
+  it('ok/ok after down resolves the incident with a duration', async () => {
+    const userId = await makeUser('rec');
+    const svc = await createService(userId, { name: 'S', baseUrl: 'https://s.com', healthCheckPath: '/', expectedStatusCodes: [200], checkIntervalSeconds: 60, timeoutSeconds: 10 });
+    let s = await apply(svc, 'down', 500);
+    s = await apply(s, 'down', 500);          // open
+    s = await apply(s, 'up', 200);            // recovery strike 1
+    expect(s.currentStatus).toBe('down');
+    s = await apply(s, 'up', 200);            // strike 2 -> resolve + up
+    expect(s.currentStatus).toBe('up');
+    const inc = (await db.select().from(incidents).where(eq(incidents.serviceId, svc.id)))[0]!;
+    expect(inc.resolvedAt).not.toBeNull();
+    expect(inc.durationSeconds).not.toBeNull();
   });
 });

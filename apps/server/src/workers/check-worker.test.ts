@@ -19,7 +19,7 @@ describe('checkOne', () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
     await checkOne(fakeService(), { fetchFn: fetchFn as unknown as typeof fetch, apply });
     expect(fetchFn).toHaveBeenCalledWith('https://w.com/health', expect.objectContaining({ method: 'GET' }));
-    expect(apply.mock.calls[0]![0].newStatus).toBe('up');
+    expect(apply.mock.calls[0]![0].rawStatus).toBe('up');
     expect(apply.mock.calls[0]![0].check.status).toBe('success');
   });
 
@@ -27,7 +27,7 @@ describe('checkOne', () => {
     const apply = vi.fn().mockResolvedValue(undefined);
     const fetchFn = vi.fn().mockRejectedValue(new Error('ENOTFOUND'));
     await checkOne(fakeService(), { fetchFn: fetchFn as unknown as typeof fetch, apply });
-    expect(apply.mock.calls[0]![0].newStatus).toBe('down');
+    expect(apply.mock.calls[0]![0].rawStatus).toBe('down');
     expect(apply.mock.calls[0]![0].check.status).toBe('error');
   });
 
@@ -36,6 +36,6 @@ describe('checkOne', () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response('err', { status: 503 }));
     await checkOne(fakeService(), { fetchFn: fetchFn as unknown as typeof fetch, apply });
     expect(apply.mock.calls[0]![0].check.status).toBe('failure');
-    expect(apply.mock.calls[0]![0].newStatus).toBe('down');
+    expect(apply.mock.calls[0]![0].rawStatus).toBe('down');
   });
 });
