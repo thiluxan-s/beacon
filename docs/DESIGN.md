@@ -130,6 +130,19 @@ These are the calls we made when the design comes under tension.
 > - Check history: sparkline (last hour) + paginated table (further back) is one option. Vercel does something like this.
 > - Integration sections: stacked or tabbed? If integrations vary across services, tabs feel right.
 
+### Incidents list (`/incidents`)
+
+**Goal:** See every recorded incident across all services at a glance, with ongoing incidents impossible to miss and live open/resolve updates streaming in without a refresh.
+
+**Decisions (Phase 5a):**
+
+- **Column order leads with Status, not Service.** The services list leads with the service name because identity is the primary scan key there. On the incidents list, severity/urgency is the primary scan key — a recruiter (or me, at 2am) needs to see "is anything ongoing right now" before "which service." The ongoing/resolved dot + label sits first, the service name second.
+- **Summary strip mirrors `ServicesLiveList`'s pattern exactly** (ongoing/resolved counts on the left, a verdict string right-aligned) so the two list pages read as the same system. Red tint (`bg-red-50/40` + `border-red-100/80`) only appears when at least one incident is ongoing — otherwise it's the neutral `zinc-50/50` strip, same threshold logic as the services strip's `hasIssues`.
+- **Ongoing incidents pulse** — same `animate-pulse` treatment as the "up" status dot elsewhere, applied to `bg-status-down` instead. Reuses the existing motion language (subtle pulse, no bounce/flash) rather than inventing a new "urgent" animation.
+- **Placeholder service name (`'…'`) for a freshly-opened incident pushed over WS** is intentional, not a bug: the WS payload has no `serviceName`, and the next server revalidation (adoption trick shared with `ServicesLiveList`) fills it in within seconds.
+- **Top-level list is resilient to fetch failure**, matching `/services`: a caught error shows a neutral "Couldn't load incidents — retrying" banner instead of crashing the page, per the DB-outage resilience convention.
+- **No skeleton/`loading.tsx` added.** `/services` doesn't have one either — the Server Component fetch is same-origin and fast enough in practice that a loading state would flash. Revisit both together if that stops being true.
+
 ### Incident view (`/incidents/[id]`)
 
 **Goal:** Read a specific incident's timeline. What started it, what happened during it, when it resolved.
@@ -160,6 +173,8 @@ These are the calls we made when the design comes under tension.
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **App header nav (Services / Incidents) is plain mono text links, no active-state styling.** Reason: with only two top-level routes, active state is low-value signal; keeping the header a Server Component (it already awaits `ensureUserExists`) avoids introducing a client-only `usePathname` wrapper for a two-item nav.
+- **Incidents list leads its column order with Status, not Service name** (opposite of the services list). Reason: severity is the primary scan key for an incident list — "is anything ongoing" matters before "which service" — so the pulsing ongoing/resolved indicator sits first.
 - **Landing page uses an asymmetric split with a ghost dashboard preview (right panel, ~22% opacity).** Reason: the product concept lands visually before any text is read — a recruiter sees service rows and status dots in their peripheral vision, which sets context instantly.
 - **Status strip as a 3px fixed top bar with 4 weighted segments.** Reason: the most compressed possible encoding of "this product has four service states" — it reads as a status bar for the status-bar product.
 - **Landing page background uses a CSS radial dot grid.** Reason: connects to the "graph paper / systems engineering" aesthetic; zero performance cost (pure CSS); subtler than a border grid.
