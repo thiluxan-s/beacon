@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { alertsConfigured, formatDowntime, openEmail, resolveEmail, sendEmail, type AlertTarget } from './email';
+import { formatDowntime, openEmail, resolveEmail, sendEmail, type AlertTarget } from './email';
 import { env } from './env';
 
 const target: AlertTarget = {
