@@ -16,6 +16,7 @@ export type ServiceDto = {
   checkIntervalSeconds: number;
   timeoutSeconds: number;
   expectedStatusCodes: number[];
+  alertsEnabled: boolean;
 };
 
 function headers(clerkUserId: string): HeadersInit {
