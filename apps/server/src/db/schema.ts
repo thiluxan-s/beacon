@@ -27,6 +27,9 @@ export const serviceStatus = pgEnum('service_status', ['pending', 'up', 'degrade
 export const checkStatus = pgEnum('check_status', ['success', 'failure', 'timeout', 'error']);
 export const incidentSeverity = pgEnum('incident_severity', ['degraded', 'down']);
 export const incidentEventType = pgEnum('incident_event_type', ['opened', 'observed', 'resolved', 'note']);
+export const alertChannel = pgEnum('alert_channel', ['email']);
+export const alertKind = pgEnum('alert_kind', ['opened', 'resolved']);
+export const alertStatus = pgEnum('alert_status', ['sent', 'failed']);
 
 export const services = pgTable(
   'services',
@@ -118,6 +121,42 @@ export type Incident = typeof incidents.$inferSelect;
 export type NewIncident = typeof incidents.$inferInsert;
 export type IncidentEvent = typeof incidentEvents.$inferSelect;
 export type NewIncidentEvent = typeof incidentEvents.$inferInsert;
+
+export const alertsSent = pgTable(
+  'alerts_sent',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    incidentId: uuid('incident_id')
+      .notNull()
+      .references(() => incidents.id, { onDelete: 'cascade' }),
+    channel: alertChannel('channel').notNull(),
+    kind: alertKind('kind').notNull(),
+    status: alertStatus('status').notNull(),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('alerts_sent_incident_idx').on(t.incidentId),
+    uniqueIndex('alerts_sent_one_per_kind_idx').on(t.incidentId, t.channel, t.kind).where(sql`status = 'sent'`),
+  ],
+);
+
+export const notificationSettings = pgTable('notification_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  alertsEnabled: boolean('alerts_enabled').notNull().default(true),
+  alertEmail: text('alert_email'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AlertSent = typeof alertsSent.$inferSelect;
+export type NewAlertSent = typeof alertsSent.$inferInsert;
+export type NotificationSetting = typeof notificationSettings.$inferSelect;
+export type NewNotificationSetting = typeof notificationSettings.$inferInsert;
 
 export const serviceIntegrations = pgTable(
   'service_integrations',

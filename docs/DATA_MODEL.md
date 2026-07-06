@@ -202,17 +202,38 @@ Same shape as service_checks but for domains.
 }
 ```
 
-### Alert rows (Phase 5 or later)
+### `alerts_sent` (Phase 5b)
 
-Not strictly part of v1's MVP but worth planning for. A simple `alerts_sent` table tracks deduplication ("don't send another email about the same incident").
+A ledger of every alert email attempt, and the dedup backstop that stops the reconciler from double-sending. `channel` is `enum('email')` today (`'slack'`, `'discord'`, etc. in v2).
 
 ```ts
 alerts_sent {
   id: uuid (pk)
-  incident_id: uuid (fk → incidents.id, indexed)
-  channel: enum('email')                         // 'slack', 'discord', etc. in v2
-  sent_at: timestamptz
+  incident_id: uuid (fk → incidents.id, on delete cascade, indexed)
+  channel: enum('email')
+  kind: enum('opened', 'resolved')
   status: enum('sent', 'failed')
+  sent_at: timestamptz
+  created_at: timestamptz
+}
+```
+
+Unique partial index `alerts_sent_one_per_kind_idx` on `(incident_id, channel, kind) WHERE status = 'sent'` — the actual dedup mechanism. A row can be inserted with `status = 'failed'` and retried; only a successful send blocks a repeat for that `(incident, channel, kind)` triple.
+
+5b reuses two existing `incidents` columns rather than adding new ones: `notification_sent` (true once the "opened" alert has gone out) and `resolution_check_id` (non-null distinguishes a genuine recovery from a service being paused).
+
+### `notification_settings` (Phase 5b)
+
+One row per user, created lazily on first visit to the alerts settings screen.
+
+```ts
+notification_settings {
+  id: uuid (pk)
+  user_id: uuid (fk → users.id, on delete cascade, unique)
+  alerts_enabled: boolean (default true)
+  alert_email: text (nullable)                   // falls back to users.email when null
+  created_at: timestamptz
+  updated_at: timestamptz
 }
 ```
 
