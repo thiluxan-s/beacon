@@ -37,7 +37,7 @@ describe('worker queries (integration)', () => {
     await applyCheckResult({
       service: svc,
       check: { status: 'success', statusCode: 200, responseTimeMs: 42, errorMessage: null },
-      newStatus: 'up',
+      rawStatus: 'up',
     });
     const after = await getService(svc.userId, svc.id);
     expect(after?.currentStatus).toBe('up');
@@ -52,7 +52,7 @@ describe('worker queries (integration)', () => {
     await applyCheckResult({
       service: svc,
       check: { status: 'failure', statusCode: 500, responseTimeMs: 10, errorMessage: null },
-      newStatus: 'down',
+      rawStatus: 'down',
     });
     expect((await findDueServices(10)).map((s) => s.id)).not.toContain(svc.id);
   });

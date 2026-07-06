@@ -23,6 +23,21 @@ describe('WsEventSchema', () => {
       WsEventSchema.safeParse({ type: 'service.status_changed', serviceId: 's', userId: 'u', status: 'sideways', previousStatus: 'up', occurredAt: '2026-06-29T00:00:00.000Z' }).success,
     ).toBe(false);
   });
+
+  it('parses incident.opened', () => {
+    const e = { type: 'incident.opened', incidentId: 'i1', serviceId: 's1', userId: 'u1', severity: 'down', startedAt: '2026-07-05T00:00:00.000Z', occurredAt: '2026-07-05T00:00:00.000Z' };
+    expect(WsEventSchema.safeParse(e).success).toBe(true);
+  });
+
+  it('parses incident.resolved', () => {
+    const e = { type: 'incident.resolved', incidentId: 'i1', serviceId: 's1', userId: 'u1', durationSeconds: 120, resolvedAt: '2026-07-05T00:02:00.000Z', occurredAt: '2026-07-05T00:02:00.000Z' };
+    expect(WsEventSchema.safeParse(e).success).toBe(true);
+  });
+
+  it('rejects incident.resolved with negative duration', () => {
+    const e = { type: 'incident.resolved', incidentId: 'i1', serviceId: 's1', userId: 'u1', durationSeconds: -1, resolvedAt: '2026-07-05T00:02:00.000Z', occurredAt: '2026-07-05T00:02:00.000Z' };
+    expect(WsEventSchema.safeParse(e).success).toBe(false);
+  });
 });
 
 describe('WsClientMessageSchema', () => {

@@ -19,8 +19,8 @@ describe('checks repository (integration)', () => {
 
   it('lists checks newest-first for the owner only', async () => {
     const { userId, svc } = await seed();
-    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, newStatus: 'up' });
-    await applyCheckResult({ service: { ...svc, currentStatus: 'up' }, check: { status: 'failure', statusCode: 500, responseTimeMs: 12, errorMessage: null }, newStatus: 'down' });
+    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, rawStatus: 'up' });
+    await applyCheckResult({ service: { ...svc, currentStatus: 'up' }, check: { status: 'failure', statusCode: 500, responseTimeMs: 12, errorMessage: null }, rawStatus: 'down' });
     const checks = await listChecks(userId, svc.id, 10);
     expect(checks).toHaveLength(2);
     expect(checks[0]!.checkedAt >= checks[1]!.checkedAt).toBe(true);
@@ -29,7 +29,7 @@ describe('checks repository (integration)', () => {
 
   it('deletes checks older than N days', async () => {
     const { svc } = await seed();
-    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, newStatus: 'up' });
+    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 10, errorMessage: null }, rawStatus: 'up' });
     await pool.query("UPDATE service_checks SET checked_at = now() - interval '40 days' WHERE service_id = $1", [svc.id]);
     expect(await deleteChecksOlderThan(30)).toBe(1);
     const { rows } = await pool.query('SELECT count(*)::int AS n FROM service_checks WHERE service_id=$1', [svc.id]);

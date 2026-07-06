@@ -5,6 +5,8 @@ import { notFound } from 'next/navigation';
 
 import { relativeTime } from '@/lib/relative-time';
 import { fetchAvailableIntegrations, fetchIntegrations, fetchService, fetchServiceChecks } from '@/lib/services-api';
+import { fetchIncidents } from '@/lib/incidents-api';
+import { formatDuration } from '@/lib/incident-style';
 import { ServiceStatusLive } from '@/components/services/service-status-live';
 import { IntegrationAttachDialog } from '@/components/services/integration-attach-dialog';
 import { VercelIntegrationCard } from '@/components/services/vercel-integration-card';
@@ -35,6 +37,8 @@ export default async function ServiceDetailPage({
   const checks = await fetchServiceChecks(user.id, serviceId, 50);
   const integrations = await fetchIntegrations(user.id, serviceId);
   const available = await fetchAvailableIntegrations(user.id);
+  const incidents = await fetchIncidents(user.id, { serviceId });
+  const activeIncident = incidents.find((i) => i.resolvedAt == null) ?? null;
 
   const endpoint = `${service.baseUrl}${service.healthCheckPath === '/' ? '' : service.healthCheckPath}`;
 
@@ -61,8 +65,13 @@ export default async function ServiceDetailPage({
             </p>
           )}
         </div>
-        <div className="shrink-0 pt-0.5">
+        <div className="shrink-0 pt-0.5 text-right">
           <ServiceStatusLive serviceId={service.id} initialStatus={service.currentStatus} />
+          {activeIncident && (
+            <Link href={`/incidents/${activeIncident.id}`} className="mt-1 inline-block font-mono text-[10px] uppercase tracking-[0.1em] text-status-down hover:underline">
+              active incident →
+            </Link>
+          )}
         </div>
       </div>
 
@@ -125,6 +134,30 @@ export default async function ServiceDetailPage({
               );
             })}
           </div>
+        )}
+      </section>
+
+      {/* ─── Incidents ─── */}
+      <section className="border-b border-zinc-200/40">
+        <div className="flex items-baseline gap-2.5 px-5 pt-4 pb-2">
+          <h2 className="font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Incidents</h2>
+          {incidents.length > 0 && <span className="font-mono text-[10px] tabular-nums text-zinc-300">{incidents.length}</span>}
+        </div>
+        {incidents.length === 0 ? (
+          <p className="px-5 pb-4 text-[12px] text-zinc-400">No incidents for this service.</p>
+        ) : (
+          <ul className="divide-y divide-zinc-200/40">
+            {incidents.slice(0, 5).map((i) => (
+              <li key={i.id} className="px-5 py-2.5">
+                <Link href={`/incidents/${i.id}`} className="flex items-center justify-between gap-4 hover:underline">
+                  <span className={`text-[12px] font-medium ${i.resolvedAt == null ? 'text-status-down' : 'text-zinc-600'}`}>
+                    {i.resolvedAt == null ? 'ongoing' : 'resolved'}
+                  </span>
+                  <span className="font-mono text-[11px] tabular-nums text-zinc-400">{formatDuration(i.durationSeconds)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

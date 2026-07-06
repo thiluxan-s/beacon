@@ -14,7 +14,7 @@ describe('GET /internal/services/:id/checks', () => {
   it('returns recent checks for the owner', async () => {
     const u = await upsertFromClerk({ clerkUserId: 'user_rc', email: 'rc@e.com' });
     const svc = await createService(u.id, { name: 'R', baseUrl: 'https://r.com', healthCheckPath: '/', expectedStatusCodes: [200], checkIntervalSeconds: 60, timeoutSeconds: 10 });
-    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 9, errorMessage: null }, newStatus: 'up' });
+    await applyCheckResult({ service: svc, check: { status: 'success', statusCode: 200, responseTimeMs: 9, errorMessage: null }, rawStatus: 'up' });
     const res = await app.request(`/internal/services/${svc.id}/checks`, { headers: { 'x-internal-secret': SECRET, 'x-clerk-user-id': 'user_rc' } });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { checks: unknown[] };

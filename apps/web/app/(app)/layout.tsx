@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { UserButton } from "@clerk/nextjs";
 import { ensureUserExists } from "@/lib/ensure-user-exists";
 import { WsProvider } from "@/lib/use-ws";
@@ -21,9 +23,27 @@ export default async function AppLayout({
        */}
       <WsProvider>
         <header className="sticky top-0 z-10 flex h-11 shrink-0 items-center justify-between border-b border-zinc-200/60 bg-zinc-50/95 px-5 backdrop-blur-md">
-          <span className="select-none font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-800">
-            beacon
-          </span>
+          <div className="flex items-center gap-6">
+            <span className="select-none font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-800">
+              beacon
+            </span>
+            {/* Nav cluster — mono, uppercase, same eyebrow treatment as the wordmark
+                but lighter weight so the wordmark stays the visual anchor. */}
+            <nav className="flex items-center gap-4">
+              <Link
+                href="/services"
+                className="font-mono text-[11px] uppercase tracking-[0.1em] text-zinc-500 transition-colors hover:text-zinc-800"
+              >
+                Services
+              </Link>
+              <Link
+                href="/incidents"
+                className="font-mono text-[11px] uppercase tracking-[0.1em] text-zinc-500 transition-colors hover:text-zinc-800"
+              >
+                Incidents
+              </Link>
+            </nav>
+          </div>
           <div className="flex items-center gap-3">
             {/* Subtle realtime status — dot + lowercase label, right-aligned */}
             <ConnectionIndicator />

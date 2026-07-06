@@ -10,6 +10,7 @@ import type { IntegrationDefinition } from './integrations/types';
 import { encrypt } from './lib/crypto';
 import { upsertIntegration, listIntegrations, deleteIntegration } from './db/repositories/service-integrations';
 import type { ServiceIntegration } from './db/repositories/service-integrations';
+import { listIncidents, getIncidentWithEvents } from './db/repositories/incidents';
 
 const UpsertUserSchema = z.object({ clerkUserId: z.string().min(1), email: z.string().email() });
 
@@ -72,6 +73,16 @@ export function createRouter(): Hono {
     if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) {
       return c.json({ error: 'unauthorized' }, 401);
     }
+    await next();
+  });
+
+  // /internal/incidents* routes require the shared secret + a resolvable user.
+  app.use('/internal/incidents', async (c, next) => {
+    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    await next();
+  });
+  app.use('/internal/incidents/*', async (c, next) => {
+    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
 
@@ -187,6 +198,21 @@ export function createRouter(): Hono {
     if (typeof body?.paused !== 'boolean') return c.json({ error: 'invalid body' }, 400);
     const svc = await setPaused(userId, c.req.param('id'), body.paused);
     return svc ? c.json(svc) : c.json({ error: 'not found' }, 404);
+  });
+
+  app.get('/internal/incidents', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const serviceId = c.req.query('serviceId') || undefined;
+    const open = c.req.query('open') === 'true';
+    return c.json({ incidents: await listIncidents(userId, { serviceId, open }) });
+  });
+
+  app.get('/internal/incidents/:id', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const detail = await getIncidentWithEvents(userId, c.req.param('id'));
+    return detail ? c.json(detail) : c.json({ error: 'not found' }, 404);
   });
 
   return app;

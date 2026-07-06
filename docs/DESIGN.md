@@ -130,14 +130,31 @@ These are the calls we made when the design comes under tension.
 > - Check history: sparkline (last hour) + paginated table (further back) is one option. Vercel does something like this.
 > - Integration sections: stacked or tabbed? If integrations vary across services, tabs feel right.
 
+### Incidents list (`/incidents`)
+
+**Goal:** See every recorded incident across all services at a glance, with ongoing incidents impossible to miss and live open/resolve updates streaming in without a refresh.
+
+**Decisions (Phase 5a):**
+
+- **Column order leads with Status, not Service.** The services list leads with the service name because identity is the primary scan key there. On the incidents list, severity/urgency is the primary scan key — a recruiter (or me, at 2am) needs to see "is anything ongoing right now" before "which service." The ongoing/resolved dot + label sits first, the service name second.
+- **Summary strip mirrors `ServicesLiveList`'s pattern exactly** (ongoing/resolved counts on the left, a verdict string right-aligned) so the two list pages read as the same system. Red tint (`bg-red-50/40` + `border-red-100/80`) only appears when at least one incident is ongoing — otherwise it's the neutral `zinc-50/50` strip, same threshold logic as the services strip's `hasIssues`.
+- **Ongoing incidents pulse** — same `animate-pulse` treatment as the "up" status dot elsewhere, applied to `bg-status-down` instead. Reuses the existing motion language (subtle pulse, no bounce/flash) rather than inventing a new "urgent" animation.
+- **Placeholder service name (`'…'`) for a freshly-opened incident pushed over WS** is intentional, not a bug: the `incident.opened` WS payload carries no `serviceName`. The real name fills in on the next Server Component render of this route — i.e. when the user navigates away and back (or any future `revalidatePath('/incidents')`). There is **no** timed auto-refresh on `/incidents` in 5a, so a live-opened incident shows `…` until then; every other field (link, status, duration, time) is correct. This mirrors the `ServicesLiveList` adoption trick, which needs no placeholder only because `status_changed` already carries full data.
+- **Top-level list is resilient to fetch failure**, matching `/services`: a caught error shows a neutral "Couldn't load incidents — retrying" banner instead of crashing the page, per the DB-outage resilience convention.
+- **No skeleton/`loading.tsx` added.** `/services` doesn't have one either — the Server Component fetch is same-origin and fast enough in practice that a loading state would flash. Revisit both together if that stops being true.
+
 ### Incident view (`/incidents/[id]`)
 
-**Goal:** Read a specific incident's timeline. What started it, what happened during it, when it resolved.
+**Goal:** Read a specific incident's timeline. What started it, what happened during it, when it resolved. This is the PRD's "wow" screen — a recruiter clicking into an incident should immediately understand the system did real work.
 
-> Decisions go here when Phase 4 builds it. Considerations:
->
-> - Timeline UI: vertical timeline with events as cards? Linear list?
-> - How to present the trigger check vs. resolution check (they're the bookends of the incident).
+**Decisions (Phase 5a):**
+
+- **Timeline is a plain vertical list, not cards.** Each event is a single line (event type + message, timestamp right-aligned) connected by a hairline rule with a status-colored dot — closer to a Linear activity log than a "card per event" pattern. Cards would add borders/shadows the density principle argues against; a list keeps many events scannable at once.
+- **Dot + connecting-rule are built as a single self-contained flex column per row** (`w-2 flex-col items-center`, dot + an absolutely-positioned `w-px` rule both centered by flexbox alignment), not a single continuous `border-l` down the `<ol>` with hand-tuned negative-`left` offsets on each dot. The `border-l` approach positions each dot with a magic-number offset (e.g. `-left-[5px]`) chosen to sit the dot centered on the border — a hardcoded value that has to be re-tuned whenever the dot size, rule width, or row padding changes, and is easy to get pixel-wrong. The flex-column version needs no offset at all: flexbox guarantees the dot and the rule share the same horizontal center by construction, and the rule's `bottom: -16px` reaches exactly into the next row's `pb-4` gap regardless of how tall any given row's message text is (single line or wrapped).
+- **Timeline dot semantics: opened = red (`status-down`), observed = amber (`status-degraded`), resolved = green (`status-up`), note = neutral gray.** This is a deliberate divergence from the incidents *list* page, where a resolved row's dot stays red as a "this happened" historical marker (see list decision below). The timeline is read chronologically as a sequence of steps, not scanned as a queue of items to triage — so its resolved dot has to read as "this step went well," not "still failing." Carrying the list's red-persists convention into the timeline would visually contradict the still-ongoing/resolved header sitting right above it.
+- **The live header (`IncidentLiveHeader`) mirrors that same green-on-resolve logic**, not the brief's original baseline (dot always red, resolved text `zinc-500`). Once `resolvedAt` is set — either from the initial server fetch or from the `incident.resolved` WS event — both the dot and the label switch to `status-up` green. The header is a single-incident summary directly above a timeline that already ends on a green dot; leaving the header red after resolution would read as unresolved at a glance, undermining the timeline immediately below it. (The list page's red-persists choice is intentionally different — see its Phase 5a decision — because a *list* of many incidents uses dot color as a uniform severity-class marker, not a resolution-state signal.)
+- **Ongoing header pulses (`animate-pulse` on the dot) and ticks a live duration every second** via a client-only `setInterval`, cleared on unmount and the moment `resolvedAt` flips (no server polling — the tick is local UI state only). On `incident.resolved`, the header patches its own `resolvedAt`/`durationSeconds` from the WS payload immediately (no visible flash) and calls `router.refresh()` once to pull any interim `observed` events into the timeline below it, since `observed` events aren't pushed live in this phase.
+- **No separate "trigger check vs. resolution check" bookend treatment.** The `opened` and `resolved` events already sit first/last in the list with distinct colors (red/green) and `font-medium` labels — that's enough visual distinction without a special-cased layout for just those two rows.
 
 ### Service configuration / "Add service" / "Edit service"
 
@@ -160,6 +177,11 @@ These are the calls we made when the design comes under tension.
 
 Newest first. Capture meaningful choices with one-sentence rationale.
 
+- **Incident timeline dot + connecting rule is a self-contained flex column per row (dot and rule both centered by `items-center`), not a continuous `border-l` with hand-computed negative-`left` dot offsets.** Reason: the border-l approach's dot offset depends on the containing `<li>`'s own margin, which is easy to get subtly pixel-wrong and doesn't self-correct if spacing changes later; the flex-column version is centered by flexbox construction, guaranteed correct regardless of row height.
+- **Timeline event dots: opened=red, observed=amber, resolved=green, note=gray — resolved is green on the timeline even though the incidents list keeps a resolved row's dot red as a historical marker.** Reason: the list is scanned as a queue (dot = severity class), the timeline is read chronologically as a sequence of steps (dot = "how did this step go") — green resolved reads as "the incident ended well," red would visually contradict a fixed incident right above it.
+- **`IncidentLiveHeader` turns its dot and label green (`status-up`) on resolve, not muted gray as the task brief's baseline snippet had it.** Reason: the header sits directly above a timeline whose final dot is green; leaving the header red after resolution would read as "still failing" one paragraph above a timeline that just said the opposite.
+- **App header nav (Services / Incidents) is plain mono text links, no active-state styling.** Reason: with only two top-level routes, active state is low-value signal; keeping the header a Server Component (it already awaits `ensureUserExists`) avoids introducing a client-only `usePathname` wrapper for a two-item nav.
+- **Incidents list leads its column order with Status, not Service name** (opposite of the services list). Reason: severity is the primary scan key for an incident list — "is anything ongoing" matters before "which service" — so the pulsing ongoing/resolved indicator sits first.
 - **Landing page uses an asymmetric split with a ghost dashboard preview (right panel, ~22% opacity).** Reason: the product concept lands visually before any text is read — a recruiter sees service rows and status dots in their peripheral vision, which sets context instantly.
 - **Status strip as a 3px fixed top bar with 4 weighted segments.** Reason: the most compressed possible encoding of "this product has four service states" — it reads as a status bar for the status-bar product.
 - **Landing page background uses a CSS radial dot grid.** Reason: connects to the "graph paper / systems engineering" aesthetic; zero performance cost (pure CSS); subtler than a border grid.
