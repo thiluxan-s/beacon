@@ -147,6 +147,10 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
         {incidents.map((i) => {
           const style = SEVERITY_STYLE[i.severity] ?? { text: 'text-status-down', dot: 'bg-status-down' };
           const ongoing = i.resolvedAt == null;
+          // Ongoing keeps the red severity dot (+ pulse); resolved rows use the same
+          // neutral gray as the summary strip's "N resolved" dot, so a closed incident
+          // never reads as an active failure to someone skimming the list.
+          const dotClass = ongoing ? style.dot : 'bg-zinc-300';
           return (
             <li
               key={i.id}
@@ -157,7 +161,7 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
                 <span
                   className={[
                     'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-                    style.dot,
+                    dotClass,
                     ongoing ? 'animate-pulse' : '',
                   ]
                     .filter(Boolean)
