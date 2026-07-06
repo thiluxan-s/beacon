@@ -48,8 +48,10 @@ export function AlertsSettingsForm({ initial }: { initial: NotificationSettingsD
           <Button
             size="sm"
             variant="ghost"
-            disabled={pending || email.trim() === ''}
-            onClick={() => save({ alertEmail: email.trim() })}
+            disabled={pending}
+            // Blank submit clears any override (alertEmail: null) → falls back to the
+            // account email, matching the helper text below. A value sets the override.
+            onClick={() => save({ alertEmail: email.trim() === '' ? null : email.trim() })}
           >
             Save
           </Button>
