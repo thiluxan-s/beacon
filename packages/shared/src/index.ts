@@ -18,3 +18,4 @@ export {
   type WsEvent,
   type WsClientMessage,
 } from './schemas/ws-event';
+export { NotificationSettingsUpdateSchema, type NotificationSettingsUpdate } from './schemas/notification-settings';
