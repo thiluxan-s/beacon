@@ -19,6 +19,10 @@ const EnvSchema = z.object({
         return false;
       }
     }, 'must be base64-encoded 32 bytes'),
+  // Email alerts (Phase 5b). Both optional — unset disables alerting entirely
+  // (worker idles, sendEmail no-ops), so dev without Resend boots cleanly.
+  RESEND_API_KEY: z.string().optional(),
+  ALERT_FROM_EMAIL: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
