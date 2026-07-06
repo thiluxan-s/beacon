@@ -1,5 +1,5 @@
 import { and, desc, eq, lt, lte, sql } from 'drizzle-orm';
-import type { CheckStatus, ServiceCreateInput, ServiceUpdateInput } from '@beacon/shared';
+import type { CheckStatus, ServiceCreateInput, ServiceUpdateInput, WsEvent } from '@beacon/shared';
 import { db } from '../index';
 import { serviceChecks, services, type Service, type ServiceCheck } from '../schema';
 import { decideTransition } from '../../workers/transition';
@@ -148,7 +148,7 @@ export async function applyCheckResult(args: {
         status: decision.nextStatus,
         previousStatus: args.service.currentStatus,
         occurredAt: now.toISOString(),
-      }));
+      } satisfies WsEvent));
     }
 
     if (decision.incidentAction === 'open') {
@@ -156,7 +156,7 @@ export async function applyCheckResult(args: {
       notifies.push(JSON.stringify({
         type: 'incident.opened', incidentId: inc.id, serviceId: args.service.id, userId: args.service.userId,
         severity: 'down', startedAt: now.toISOString(), occurredAt: now.toISOString(),
-      }));
+      } satisfies WsEvent));
     } else if (decision.incidentAction === 'resolve') {
       const open = await findOpenIncident(tx, args.service.id);
       if (open) {
@@ -167,7 +167,7 @@ export async function applyCheckResult(args: {
         notifies.push(JSON.stringify({
           type: 'incident.resolved', incidentId: open.id, serviceId: args.service.id, userId: args.service.userId,
           durationSeconds, resolvedAt: now.toISOString(), occurredAt: now.toISOString(),
-        }));
+        } satisfies WsEvent));
       }
     } else if (args.rawStatus === 'down') {
       const open = await findOpenIncident(tx, args.service.id);
