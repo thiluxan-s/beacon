@@ -43,6 +43,12 @@ export default async function AppLayout({
                 Incidents
               </Link>
               <Link
+                href="/domains"
+                className="font-mono text-[11px] uppercase tracking-[0.1em] text-zinc-500 transition-colors hover:text-zinc-800"
+              >
+                Domains
+              </Link>
+              <Link
                 href="/settings"
                 className="font-mono text-[11px] uppercase tracking-[0.1em] text-zinc-500 transition-colors hover:text-zinc-800"
               >
