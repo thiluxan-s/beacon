@@ -177,17 +177,24 @@ These are the calls we made when the design comes under tension.
 - **First section header (`Email alerts`) carries `pb-2` like every other section h2 in the app** (see `/services/[serviceId]`'s Integrations/Incidents/Recent-checks headers), with the content wrapper's top padding removed to match. The initial draft double-padded (h2 `pt-4` + form `py-4`), which would have left an oversized gap under the "Email alerts" eyebrow relative to "Per-service" below it.
 - **Checkbox label text is `zinc-900`, not `zinc-800`.** `zinc-900` is the established color for primary 13px/medium row text (service names in `/services`, dialog headings) — `zinc-800` doesn't appear anywhere else at that weight/size.
 
-### Domain detail
+### Domains list (`/domains`)
 
-**Goal:** SSL expiry, DNS health, domain registration expiry.
+**Goal:** See every tracked domain's DNS/SSL/registration health at a glance, add/recheck/delete inline — the same "operational list" pattern as `/services` and `/incidents`, extended to a status enum with more tiers (`pending`/`healthy`/`warning`/`expiring_soon`/`expired`/`unhealthy` vs. services' four).
 
-> Decisions go here when Phase 2 or 3 builds domains.
+**Decisions (Phase 5c):**
+
+- **`expiring_soon`/`expired`/`unhealthy` pulse (`animate-pulse` on the dot); `warning`/`healthy`/`pending` stay static.** The task brief's baseline gave `warning` and `expiring_soon` the identical amber token and `expired`/`unhealthy` the identical red token, so within each color tier the more urgent state was visually indistinguishable from the less urgent one. Reusing the incidents list's precedent — pulse means "this state persists and needs attention," not literally "happening this instant" — extends cleanly to domains: `expiring_soon` is a persistent "will break soon" state (same category as an ongoing incident), `expired`/`unhealthy` are persistent "broken right now" states. `warning` alone (e.g. a DNS record deserving a look, nothing imminently breaking) stays non-pulsing, matching `degraded` on the services list.
+- **Summary strip uses per-status count pills + a right-aligned verdict, mirroring `ServicesLiveList` exactly** (pill per non-zero status, red tint only when `issues > 0`), rather than the brief's baseline of a single verdict line with no breakdown. With six possible statuses instead of services' four, a bare "N need attention" line loses the "which kind" signal the services page's pill row gives for free; pills cost nothing extra since they only render when count > 0. Pill order: `healthy` first (positive state), then severity descending (`expired`, `unhealthy`, `expiring_soon`, `warning`), `pending` last — same ordering logic as the services strip (up, down, degraded, paused).
+- **Status column widened to `w-32` (from the brief's `w-28`).** `w-28` is exactly wide enough for `services`' longest label ("Degraded"); domains' longest label is "Expiring Soon" (13 characters incl. space), which risks wrapping to two lines inside the dot + `w-28` badge on every row. Widened by one Tailwind step so the badge never wraps regardless of status.
 
 ---
 
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
+
+- **Domains list status dots pulse for `expiring_soon`/`expired`/`unhealthy` only, not `warning`.** Reason: `warning` and `expiring_soon` share one amber token, `expired` and `unhealthy` share one red token — without an escalation signal within each color tier, the more urgent status of each pair would be indistinguishable from the less urgent one. Pulse reuses the incidents list's existing "persistent, needs-attention" motion language rather than inventing a new one.
+- **Domains list summary strip adopts `ServicesLiveList`'s per-status pill + verdict pattern instead of the task brief's single verdict line.** Reason: six possible statuses make a bare count-and-verdict line less informative than the services page's breakdown; keeping the two list pages visually identical in this region reinforces "one system."
 
 - **Settings page reuses native checkboxes (`accent-status-up`, `rounded-[3px] border-zinc-300`) instead of introducing a Switch component**, and gets the same "couldn't load — retrying" resilience banner as `/services`/`/incidents` (the task's baseline draft had no `try/catch` around the settings/services fetch). Reason: no Switch primitive existed yet and two checkbox use-cases didn't justify adding one; every other data-backed page already has the DB-outage banner, so settings shouldn't be the one exception.
 

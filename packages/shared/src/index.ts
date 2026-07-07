@@ -19,3 +19,4 @@ export {
   type WsClientMessage,
 } from './schemas/ws-event';
 export { NotificationSettingsUpdateSchema, type NotificationSettingsUpdate } from './schemas/notification-settings';
+export { DomainCreateSchema, type DomainCreateInput } from './schemas/domain';

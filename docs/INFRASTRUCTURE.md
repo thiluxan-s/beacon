@@ -159,6 +159,8 @@ Local development uses `docker-compose.dev.yml` (overrides) which builds locally
 
 The worker also runs a daily maintenance pass: once per 24h it prunes `service_checks` rows older than 30 days so the history table stays bounded. This is best-effort — a failure is logged and never crashes the poll loop.
 
+As of Phase 5c the same `worker` process also runs a **domain worker** loop (~30s poll) that checks tracked domains' DNS (native `dns`), SSL cert expiry/issuer (native `tls` on :443), and registration expiry. Registration expiry is looked up via **RDAP over HTTPS to `rdap.org`** — so the worker makes outbound HTTPS to `rdap.org` in addition to the endpoints it already reaches (the monitored services and, if configured, `api.resend.com`). Egress is already open, so **no firewall change and no new secret** is needed. RDAP failures (a registry without RDAP, a multi-part TLD the apex fallback can't resolve) degrade to a null/"unknown" registration date — never a crash. DNS + SSL are always checked regardless.
+
 ---
 
 ### Real-time (WebSockets)
