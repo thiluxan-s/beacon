@@ -166,6 +166,17 @@ These are the calls we made when the design comes under tension.
 > - Multi-step or single form? Probably single form for v1 (simple service config) with integration attachment in a separate flow afterwards.
 > - Integration UI: the registry-driven form is unique to this project. Each integration provides a Zod schema; the UI renders a form from that. The pattern is generic.
 
+### Settings (`/settings`)
+
+**Goal:** Global email-alerts toggle + destination email, per-service alert toggles. The plainest screen in the app — a form, not a dashboard surface — so it borrows the section/eyebrow/hairline vocabulary rather than inventing anything new.
+
+**Decisions (Phase 5b):**
+
+- **Native `<input type="checkbox">` with `accent-status-up`, not a shadcn/custom Switch.** No Switch primitive exists in this project yet, and a settings page with two toggle types (global + per-row) isn't enough surface area to justify introducing one. `rounded-[3px] border-zinc-300` is added so the checkbox doesn't look like a stock OS control next to `rounded-lg` buttons/inputs elsewhere on the page — a one-line, zero-dependency polish.
+- **Resilience banner ("Couldn't load settings — retrying") added to match `/services` and `/incidents`.** The baseline draft fetched settings + services with no `try/catch`, which would have crashed the page on a DB blip — inconsistent with the DB-outage resilience convention (CLAUDE.md) that every other data-backed page already honors. Same neutral-dot + mono-label treatment, same behavior (hide the data sections while the banner is up, not partial/stale content).
+- **First section header (`Email alerts`) carries `pb-2` like every other section h2 in the app** (see `/services/[serviceId]`'s Integrations/Incidents/Recent-checks headers), with the content wrapper's top padding removed to match. The initial draft double-padded (h2 `pt-4` + form `py-4`), which would have left an oversized gap under the "Email alerts" eyebrow relative to "Per-service" below it.
+- **Checkbox label text is `zinc-900`, not `zinc-800`.** `zinc-900` is the established color for primary 13px/medium row text (service names in `/services`, dialog headings) — `zinc-800` doesn't appear anywhere else at that weight/size.
+
 ### Domain detail
 
 **Goal:** SSL expiry, DNS health, domain registration expiry.
@@ -177,6 +188,8 @@ These are the calls we made when the design comes under tension.
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
+
+- **Settings page reuses native checkboxes (`accent-status-up`, `rounded-[3px] border-zinc-300`) instead of introducing a Switch component**, and gets the same "couldn't load — retrying" resilience banner as `/services`/`/incidents` (the task's baseline draft had no `try/catch` around the settings/services fetch). Reason: no Switch primitive existed yet and two checkbox use-cases didn't justify adding one; every other data-backed page already has the DB-outage banner, so settings shouldn't be the one exception.
 
 - **Incident timeline dot + connecting rule is a self-contained flex column per row (dot and rule both centered by `items-center`), not a continuous `border-l` with hand-computed negative-`left` dot offsets.** Reason: the border-l approach's dot offset depends on the containing `<li>`'s own margin, which is easy to get subtly pixel-wrong and doesn't self-correct if spacing changes later; the flex-column version is centered by flexbox construction, guaranteed correct regardless of row height.
 - **Timeline event dots: opened=red, observed=amber, resolved=green, note=gray — resolved is green on the timeline, whereas the incidents list uses a neutral gray dot for a resolved row (red reserved for ongoing).** Reason: the list is scanned as a queue (gray = "closed, not active"), the timeline is read chronologically as a sequence of steps (green resolved = "the incident ended well"). Neither page shows red on a resolved incident.

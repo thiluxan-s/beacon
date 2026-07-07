@@ -23,4 +23,12 @@ describe('loadEnv', () => {
   it('throws when INTERNAL_API_SECRET is too short', () => {
     expect(() => loadEnv({ ...base, INTERNAL_API_SECRET: 'short' })).toThrow();
   });
+
+  it('accepts an empty ALERT_FROM_EMAIL (blank-value convention disables alerting)', () => {
+    expect(() => loadEnv({ ...base, ALERT_FROM_EMAIL: '' })).not.toThrow();
+  });
+
+  it('throws when ALERT_FROM_EMAIL is a malformed non-empty value', () => {
+    expect(() => loadEnv({ ...base, ALERT_FROM_EMAIL: 'nope' })).toThrow();
+  });
 });

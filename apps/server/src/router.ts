@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { HealthResponse } from '@beacon/shared';
-import { ServiceCreateSchema, ServiceUpdateSchema } from '@beacon/shared';
+import { ServiceCreateSchema, ServiceUpdateSchema, NotificationSettingsUpdateSchema } from '@beacon/shared';
 import { env } from './lib/env';
 import { getByClerkId, upsertFromClerk } from './db/repositories/users';
 import { createService, deleteService, getService, listChecks, listServicesByUser, setPaused, updateService } from './db/repositories/services';
@@ -11,6 +11,7 @@ import { encrypt } from './lib/crypto';
 import { upsertIntegration, listIntegrations, deleteIntegration } from './db/repositories/service-integrations';
 import type { ServiceIntegration } from './db/repositories/service-integrations';
 import { listIncidents, getIncidentWithEvents } from './db/repositories/incidents';
+import { getResolvedSettings, upsertSettings } from './db/repositories/notification-settings';
 
 const UpsertUserSchema = z.object({ clerkUserId: z.string().min(1), email: z.string().email() });
 
@@ -82,6 +83,12 @@ export function createRouter(): Hono {
     await next();
   });
   app.use('/internal/incidents/*', async (c, next) => {
+    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    await next();
+  });
+
+  // /internal/notification-settings has no sub-segments, so one exact-path guard covers GET + PUT.
+  app.use('/internal/notification-settings', async (c, next) => {
     if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
@@ -213,6 +220,21 @@ export function createRouter(): Hono {
     if (!userId) return c.json({ error: 'unknown user' }, 401);
     const detail = await getIncidentWithEvents(userId, c.req.param('id'));
     return detail ? c.json(detail) : c.json({ error: 'not found' }, 404);
+  });
+
+  app.get('/internal/notification-settings', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    return c.json(await getResolvedSettings(userId));
+  });
+
+  app.put('/internal/notification-settings', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const parsed = NotificationSettingsUpdateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'invalid body', issues: parsed.error.issues }, 400);
+    await upsertSettings(userId, parsed.data);
+    return c.json(await getResolvedSettings(userId));
   });
 
   return app;

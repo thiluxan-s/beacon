@@ -42,6 +42,12 @@ export default async function AppLayout({
               >
                 Incidents
               </Link>
+              <Link
+                href="/settings"
+                className="font-mono text-[11px] uppercase tracking-[0.1em] text-zinc-500 transition-colors hover:text-zinc-800"
+              >
+                Settings
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">
