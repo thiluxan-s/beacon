@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { HealthResponse } from '@beacon/shared';
-import { ServiceCreateSchema, ServiceUpdateSchema, NotificationSettingsUpdateSchema } from '@beacon/shared';
+import { ServiceCreateSchema, ServiceUpdateSchema, NotificationSettingsUpdateSchema, DomainCreateSchema } from '@beacon/shared';
 import { env } from './lib/env';
 import { getByClerkId, upsertFromClerk } from './db/repositories/users';
 import { createService, deleteService, getService, listChecks, listServicesByUser, setPaused, updateService } from './db/repositories/services';
@@ -12,6 +12,7 @@ import { upsertIntegration, listIntegrations, deleteIntegration } from './db/rep
 import type { ServiceIntegration } from './db/repositories/service-integrations';
 import { listIncidents, getIncidentWithEvents } from './db/repositories/incidents';
 import { getResolvedSettings, upsertSettings } from './db/repositories/notification-settings';
+import { createDomain, listDomainsByUser, deleteDomain, recheckDomain, DomainExistsError } from './db/repositories/domains';
 
 const UpsertUserSchema = z.object({ clerkUserId: z.string().min(1), email: z.string().email() });
 
@@ -89,6 +90,16 @@ export function createRouter(): Hono {
 
   // /internal/notification-settings has no sub-segments, so one exact-path guard covers GET + PUT.
   app.use('/internal/notification-settings', async (c, next) => {
+    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    await next();
+  });
+
+  // /internal/domains* routes require the shared secret + a resolvable user.
+  app.use('/internal/domains', async (c, next) => {
+    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    await next();
+  });
+  app.use('/internal/domains/*', async (c, next) => {
     if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
@@ -235,6 +246,40 @@ export function createRouter(): Hono {
     if (!parsed.success) return c.json({ error: 'invalid body', issues: parsed.error.issues }, 400);
     await upsertSettings(userId, parsed.data);
     return c.json(await getResolvedSettings(userId));
+  });
+
+  app.get('/internal/domains', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    return c.json({ domains: await listDomainsByUser(userId) });
+  });
+
+  app.post('/internal/domains', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const parsed = DomainCreateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'invalid body', issues: parsed.error.issues }, 400);
+    try {
+      const domain = await createDomain(userId, parsed.data);
+      return c.json(domain, 201);
+    } catch (err) {
+      if (err instanceof DomainExistsError) return c.json({ error: 'This domain is already tracked.' }, 409);
+      throw err;
+    }
+  });
+
+  app.delete('/internal/domains/:id', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const ok = await deleteDomain(userId, c.req.param('id'));
+    return ok ? c.body(null, 204) : c.json({ error: 'not found' }, 404);
+  });
+
+  app.post('/internal/domains/:id/recheck', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const domain = await recheckDomain(userId, c.req.param('id'));
+    return domain ? c.json(domain) : c.json({ error: 'not found' }, 404);
   });
 
   return app;
