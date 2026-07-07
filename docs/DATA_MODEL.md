@@ -168,10 +168,10 @@ Domains are tracked separately from services. A service uses a domain; the domai
 ```ts
 {
   id: uuid (pk)
-  user_id: uuid (fk → users.id, on delete cascade, indexed)
+  user_id: uuid (fk → users.id, on delete cascade)     // unique with domain — see below
   domain: text                                  // "wayfare.thiluxan.com"
   check_interval_seconds: integer (default 3600)  // hourly for domains; faster doesn't help
-  current_status: enum('healthy', 'warning', 'expiring_soon', 'expired', 'unhealthy')
+  current_status: enum('pending', 'healthy', 'warning', 'expiring_soon', 'expired', 'unhealthy')
   ssl_expires_at: timestamptz (nullable)
   domain_expires_at: timestamptz (nullable)
   ssl_issuer: text (nullable)                   // "Let's Encrypt", "Cloudflare", etc.
@@ -183,6 +183,8 @@ Domains are tracked separately from services. A service uses a domain; the domai
 ```
 
 **Why a separate table?** Multiple services can share a domain (e.g., I might run 3 services under `*.thiluxan.com`). Checking the domain once and joining is cleaner than re-checking SSL for every service.
+
+A unique index on `(user_id, domain)` prevents the same user from adding the same domain twice. A `next_check_at` index supports the worker's due-check scan (same pattern as `services`).
 
 ### `domain_checks`
 

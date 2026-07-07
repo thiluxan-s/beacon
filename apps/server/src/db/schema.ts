@@ -30,6 +30,7 @@ export const incidentEventType = pgEnum('incident_event_type', ['opened', 'obser
 export const alertChannel = pgEnum('alert_channel', ['email']);
 export const alertKind = pgEnum('alert_kind', ['opened', 'resolved']);
 export const alertStatus = pgEnum('alert_status', ['sent', 'failed']);
+export const domainStatus = pgEnum('domain_status', ['pending', 'healthy', 'warning', 'expiring_soon', 'expired', 'unhealthy']);
 
 export const services = pgTable(
   'services',
@@ -187,3 +188,50 @@ export type ServiceCheck = typeof serviceChecks.$inferSelect;
 export type NewServiceCheck = typeof serviceChecks.$inferInsert;
 export type ServiceIntegration = typeof serviceIntegrations.$inferSelect;
 export type NewServiceIntegration = typeof serviceIntegrations.$inferInsert;
+
+export const domains = pgTable(
+  'domains',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    domain: text('domain').notNull(),
+    checkIntervalSeconds: integer('check_interval_seconds').notNull().default(3600),
+    currentStatus: domainStatus('current_status').notNull().default('pending'),
+    sslExpiresAt: timestamp('ssl_expires_at', { withTimezone: true }),
+    domainExpiresAt: timestamp('domain_expires_at', { withTimezone: true }),
+    sslIssuer: text('ssl_issuer'),
+    lastCheckAt: timestamp('last_check_at', { withTimezone: true }),
+    nextCheckAt: timestamp('next_check_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('domains_user_domain_idx').on(t.userId, t.domain),
+    index('domains_next_check_idx').on(t.nextCheckAt),
+  ],
+);
+
+export const domainChecks = pgTable(
+  'domain_checks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    domainId: uuid('domain_id')
+      .notNull()
+      .references(() => domains.id, { onDelete: 'cascade' }),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+    dnsResolved: boolean('dns_resolved').notNull(),
+    dnsIp: text('dns_ip'),
+    sslValid: boolean('ssl_valid'),
+    sslExpiresAt: timestamp('ssl_expires_at', { withTimezone: true }),
+    sslDaysUntilExpiry: integer('ssl_days_until_expiry'),
+    errorMessage: text('error_message'),
+  },
+  (t) => [index('domain_checks_domain_checked_idx').on(t.domainId, t.checkedAt)],
+);
+
+export type Domain = typeof domains.$inferSelect;
+export type NewDomain = typeof domains.$inferInsert;
+export type DomainCheck = typeof domainChecks.$inferSelect;
+export type NewDomainCheck = typeof domainChecks.$inferInsert;
