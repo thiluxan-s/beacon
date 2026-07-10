@@ -9,6 +9,7 @@ export type DomainDto = {
   domainExpiresAt: string | null;
   sslIssuer: string | null;
   lastCheckAt: string | null;
+  isPublic: boolean;
 };
 
 function headers(clerkUserId: string): HeadersInit {
@@ -36,4 +37,14 @@ export async function deleteDomainOnServer(clerkUserId: string, id: string): Pro
 export async function recheckDomainOnServer(clerkUserId: string, id: string): Promise<void> {
   const res = await fetch(`${serverApiBaseUrl()}/internal/domains/${id}/recheck`, { method: 'POST', headers: headers(clerkUserId), cache: 'no-store' });
   if (!res.ok) throw new Error(`recheckDomain failed: ${res.status}`);
+}
+
+export async function setDomainPublicOnServer(clerkUserId: string, id: string, isPublic: boolean): Promise<void> {
+  const res = await fetch(`${serverApiBaseUrl()}/internal/domains/${id}/visibility`, {
+    method: 'POST',
+    headers: headers(clerkUserId),
+    body: JSON.stringify({ isPublic }),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`setDomainPublic failed: ${res.status}`);
 }
