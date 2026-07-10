@@ -65,18 +65,21 @@ See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the full VPS setup, d
 
 ## Adding an integration
 
-Every data source Beacon knows how to read — Vercel deploys, GitHub Actions runs, whatever comes next — is a single file implementing the `IntegrationDefinition` interface in [`apps/server/src/integrations/types.ts`](apps/server/src/integrations/types.ts): a Zod schema for credentials, a Zod schema for config, field metadata for the generic attach form, a `testCredentials` check, and a `fetchData` call. Wiring it in is one entry in the registry map:
+Every data source Beacon knows how to read — Vercel deploys, GitHub Actions runs, whatever comes next — is a single file implementing the `IntegrationDefinition` interface in [`apps/server/src/integrations/types.ts`](apps/server/src/integrations/types.ts): a Zod schema for credentials, a Zod schema for config, field metadata for the generic attach form, a `testCredentials` check, and a `fetchData` call. Wiring it in is an import plus one entry in the registry map:
 
 ```ts
 // apps/server/src/integrations/registry.ts
+import { railwayIntegration } from './railway';
+
 export const IntegrationRegistry: Map<string, IntegrationDefinition> = new Map([
   [vercelIntegration.id, vercelIntegration as IntegrationDefinition],
   [githubIntegration.id, githubIntegration as IntegrationDefinition],
-  // add a new integration here — that's the whole wiring change
+  [railwayIntegration.id, railwayIntegration as IntegrationDefinition],
+  // one import + one entry — that's the whole wiring change
 ]);
 ```
 
-That's the entire seam: drop `apps/server/src/integrations/railway.ts`, implement the interface, add one line to the map above. No changes to the worker, the API routes, or the WebSocket fan-out — they all consume `IntegrationRegistry` generically. If adding a provider ever required touching core code, that would mean the abstraction had a hole in it. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full Integration Layer design, including the credential-encryption and attach-form details.
+That's the entire seam: drop `apps/server/src/integrations/railway.ts`, implement the interface, add the import and one line to the map above. No changes to the worker, the API routes, or the WebSocket fan-out — they all consume `IntegrationRegistry` generically. If adding a provider ever required touching core code, that would mean the abstraction had a hole in it. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full Integration Layer design, including the credential-encryption and attach-form details.
 
 ## Tech stack
 
