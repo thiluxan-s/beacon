@@ -13,7 +13,7 @@ describe('attachWebSocketServer (integration)', () => {
     const hub = new ConnectionHub();
     const httpServer = createServer();
     attachWebSocketServer(httpServer, hub, {
-      authenticate: async (token) => (token === 'good' ? { userId: 'u1' } : null),
+      authenticate: async (token) => (token === 'good' ? { userId: 'u1', public: false } : null),
       canAccessService: async () => true,
       heartbeatMs: 10_000,
     });

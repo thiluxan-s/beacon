@@ -2,21 +2,23 @@ import type { Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { WsClientMessageSchema } from '@beacon/shared';
 import { authenticateConnection } from './auth';
+import { isServicePublic } from '../db/repositories/services';
 import type { ConnectionHub } from './connections';
 
 type Deps = {
-  authenticate?: (token: string | undefined) => Promise<{ userId: string } | null>;
+  authenticate?: (token: string | undefined, opts: { public: boolean }) => Promise<{ userId: string; public: boolean } | null>;
   canAccessService?: (userId: string, serviceId: string) => Promise<boolean>;
+  isServicePublic?: (serviceId: string) => Promise<boolean>;
   heartbeatMs?: number;
 };
 
 export function attachWebSocketServer(httpServer: Server, hub: ConnectionHub, deps: Deps = {}): void {
-  const authenticate = deps.authenticate ?? ((t) => authenticateConnection(t));
+  const authenticate = deps.authenticate ?? ((t, o) => authenticateConnection(t, o));
   const heartbeatMs = deps.heartbeatMs ?? 30_000;
   const wss = new WebSocketServer({ noServer: true });
 
   // Store auth results between upgrade and connection events
-  const authMap = new WeakMap<WebSocket, { userId: string }>();
+  const authMap = new WeakMap<WebSocket, { userId: string; public: boolean }>();
 
   httpServer.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url ?? '', 'http://localhost');
@@ -25,8 +27,9 @@ export function attachWebSocketServer(httpServer: Server, hub: ConnectionHub, de
       return;
     }
     const token = url.searchParams.get('token') ?? undefined;
+    const isPublic = url.searchParams.get('public') === '1';
     // Authenticate before completing the handshake so a bad token never gets a 101
-    void authenticate(token).then((auth) => {
+    void authenticate(token, { public: isPublic }).then((auth) => {
       if (!auth) {
         socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
         socket.destroy();
@@ -47,7 +50,7 @@ export function attachWebSocketServer(httpServer: Server, hub: ConnectionHub, de
       return;
     }
 
-    const connId = hub.add(ws, auth.userId);
+    const connId = hub.add(ws, auth.userId, auth.public);
     let missed = 0;
     ws.on('pong', () => { missed = 0; });
     const timer = setInterval(() => {
@@ -61,7 +64,7 @@ export function attachWebSocketServer(httpServer: Server, hub: ConnectionHub, de
       try { json = JSON.parse(raw.toString()); } catch { return; }
       const parsed = WsClientMessageSchema.safeParse(json);
       if (!parsed.success) return;
-      if (parsed.data.type === 'subscribe') await hub.subscribe(connId, parsed.data.topic, { canAccessService: deps.canAccessService });
+      if (parsed.data.type === 'subscribe') await hub.subscribe(connId, parsed.data.topic, { canAccessService: deps.canAccessService, isServicePublic: deps.isServicePublic ?? isServicePublic });
       else hub.unsubscribe(connId, parsed.data.topic);
     });
 
