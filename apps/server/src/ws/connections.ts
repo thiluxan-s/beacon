@@ -19,6 +19,14 @@ export class ConnectionHub {
     this.conns.delete(connId);
   }
 
+  // Number of live anonymous (public) connections — used to cap the unauthenticated
+  // WS lane so it can't be opened without bound and exhaust the small VPS.
+  publicConnectionCount(): number {
+    let n = 0;
+    for (const conn of this.conns.values()) if (conn.public) n++;
+    return n;
+  }
+
   async subscribe(
     connId: string,
     topic: string,
