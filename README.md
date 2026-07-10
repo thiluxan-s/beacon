@@ -97,3 +97,46 @@ That's the entire seam: drop `apps/server/src/integrations/railway.ts`, implemen
 ## Deploy pipeline
 
 A push to `main` triggers GitHub Actions: typecheck, lint, and tests run first, then the `web` and `server` images build and push to ghcr. Deployment happens over SSH via [`infrastructure/deploy/deploy.sh`](infrastructure/deploy/deploy.sh), which pulls the new images, runs any pending database migrations, brings the stack up with `docker compose up`, and health-checks both `web` and `server` before considering the deploy complete — rolling back automatically if either fails. See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the full VPS setup, deploy pipeline, and networking details.
+
+## Screenshots
+
+<!-- SCREENSHOT: service detail — live status stream + recent checks -->
+> _📷 Screenshot coming soon._
+
+<!-- SCREENSHOT: incident timeline — opened → observed → resolved -->
+> _📷 Screenshot coming soon._
+
+<!-- SCREENSHOT: integration card — Vercel/GitHub snapshot on a service -->
+> _📷 Screenshot coming soon._
+
+## Roadmap
+
+Explicitly not in v1:
+
+- More platform integrations — Railway, Fly, Render, AWS, custom webhooks
+- SSH-based container monitoring
+- Anomaly detection
+- Push/Slack/Discord alerts
+- Public status pages
+- Multi-user / sharing
+- Cost monitoring
+- Synthetic transactions
+- AI-summarized weekly reports
+
+## Cost
+
+**~$12/mo.** DigitalOcean `s-1vcpu-2gb` droplet ($12/mo) is the only real line item — domain is already owned (~$12/yr amortized), DNS (Namecheap), TLS (Caddy/Let's Encrypt), and the external uptime check (UptimeRobot) are all free, and there's no AI/API spend. This is deliberately not a free-tier portfolio piece — the cost is the point.
+
+## Run it locally
+
+Requires Node 22 and Docker.
+
+```bash
+git clone https://github.com/thiluxan-s/beacon && cd beacon
+npm install
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env.local          # fill in Clerk keys, secrets
+docker compose -f infrastructure/docker-compose.dev.yml up -d   # local Postgres
+npm run db:migrate
+npm run dev                                            # web + API server + worker
+```
