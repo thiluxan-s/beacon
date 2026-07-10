@@ -96,7 +96,7 @@ That's the entire seam: drop `apps/server/src/integrations/railway.ts`, implemen
 
 ## Deploy pipeline
 
-A push to `main` triggers GitHub Actions: typecheck, lint, and tests run first, then the `web` and `server` images build and push to ghcr. Deployment happens over SSH via [`infrastructure/deploy/deploy.sh`](infrastructure/deploy/deploy.sh), which pulls the new images, runs any pending database migrations, brings the stack up with `docker compose up`, and health-checks both `web` and `server` before considering the deploy complete — rolling back automatically if either fails. See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the full VPS setup, deploy pipeline, and networking details.
+A push to `main` triggers GitHub Actions: typecheck, lint, and tests run first, then the `web` and `server` images build and push to ghcr. Deployment happens over SSH via [`infrastructure/deploy/deploy.sh`](infrastructure/deploy/deploy.sh), which pulls the new images, runs any pending database migrations, brings the stack up with `docker compose up`, and health-checks both `web` and `server` before considering the deploy complete — rolling back automatically if either fails. See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the rollback mechanics and CI workflow definitions.
 
 ## Screenshots
 
