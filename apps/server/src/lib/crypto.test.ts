@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { encrypt, decrypt } from './crypto';
+import { encrypt, decrypt, timingSafeEqualStr } from './crypto';
+
+describe('timingSafeEqualStr', () => {
+  it('returns true for equal strings', () => {
+    expect(timingSafeEqualStr('a-secret-value', 'a-secret-value')).toBe(true);
+  });
+  it('returns false for different strings of equal length', () => {
+    expect(timingSafeEqualStr('a-secret-value', 'a-secret-valuX')).toBe(false);
+  });
+  it('returns false for different lengths without throwing', () => {
+    expect(timingSafeEqualStr('short', 'a-longer-secret')).toBe(false);
+  });
+  it('returns false when one side is empty', () => {
+    expect(timingSafeEqualStr('', 'secret')).toBe(false);
+  });
+});
 
 describe('crypto (AES-256-GCM)', () => {
   it('round-trips plaintext', () => {

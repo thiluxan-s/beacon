@@ -8,7 +8,7 @@ import { createService, deleteService, getService, listChecks, listPublicService
 import { publicModeEnabled } from './lib/public-mode';
 import { IntegrationRegistry } from './integrations/registry';
 import type { IntegrationDefinition } from './integrations/types';
-import { encrypt } from './lib/crypto';
+import { encrypt, timingSafeEqualStr } from './lib/crypto';
 import { upsertIntegration, listIntegrations, deleteIntegration } from './db/repositories/service-integrations';
 import type { ServiceIntegration } from './db/repositories/service-integrations';
 import { listIncidents, listPublicIncidents, getIncidentWithEvents } from './db/repositories/incidents';
@@ -51,7 +51,7 @@ export function createRouter(): Hono {
   });
 
   app.post('/internal/users/upsert', async (c) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) {
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) {
       return c.json({ error: 'unauthorized' }, 401);
     }
     const parsed = UpsertUserSchema.safeParse(await c.req.json().catch(() => null));
@@ -67,13 +67,13 @@ export function createRouter(): Hono {
 
   // All /internal/services* routes require the shared secret + a resolvable user.
   app.use('/internal/services/*', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) {
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) {
       return c.json({ error: 'unauthorized' }, 401);
     }
     await next();
   });
   app.use('/internal/services', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) {
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) {
       return c.json({ error: 'unauthorized' }, 401);
     }
     await next();
@@ -81,34 +81,34 @@ export function createRouter(): Hono {
 
   // /internal/incidents* routes require the shared secret + a resolvable user.
   app.use('/internal/incidents', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
   app.use('/internal/incidents/*', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
 
   // /internal/notification-settings has no sub-segments, so one exact-path guard covers GET + PUT.
   app.use('/internal/notification-settings', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
 
   // /internal/domains* routes require the shared secret + a resolvable user.
   app.use('/internal/domains', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
   app.use('/internal/domains/*', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
 
   // Public read-only endpoints: secret-gated (the web server proxies them), but 404
   // when public mode is disabled. They expose only is_public entities as minimal DTOs.
   app.use('/internal/public/*', async (c, next) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
 
@@ -209,7 +209,7 @@ export function createRouter(): Hono {
   });
 
   app.get('/internal/integrations', async (c) => {
-    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) {
+    if (!timingSafeEqualStr(c.req.header('x-internal-secret') ?? '', env.INTERNAL_API_SECRET)) {
       return c.json({ error: 'unauthorized' }, 401);
     }
     const userId = await resolveUserId(c);

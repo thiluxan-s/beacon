@@ -1,5 +1,18 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from 'node:crypto';
 import { env } from './env';
+
+/**
+ * Constant-time string comparison for secrets (e.g. the internal API secret).
+ * Avoids the early-exit timing signal of `===`/`!==`. A length mismatch returns
+ * false immediately — this leaks length only, which is acceptable for a fixed
+ * server-side secret and avoids `timingSafeEqual` throwing on unequal buffers.
+ */
+export function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 const KEY = Buffer.from(env.INTEGRATIONS_ENCRYPTION_KEY, 'base64');
 // Blob format version. A 1-byte prefix lets us evolve the scheme (or support
