@@ -6,6 +6,7 @@ import { upsertFromClerk } from './users';
 import {
   createDomain, listDomainsByUser, getDomain, deleteDomain,
   findDueDomains, recheckDomain, applyDomainCheckResult, DomainExistsError,
+  listPublicDomains, setDomainPublic,
 } from './domains';
 
 async function makeUser(clerkId = 'dom_user') {
@@ -68,5 +69,15 @@ describe('domains repository (integration)', () => {
     const re = await recheckDomain(userId, d.id);
     expect(re).not.toBeNull();
     expect((await findDueDomains(10)).some((x) => x.id === d.id)).toBe(true);
+  });
+
+  it('setDomainPublic flips the flag (owner-scoped); listPublicDomains returns only public', async () => {
+    const userId = await makeUser('pub_dom');
+    const d = await createDomain(userId, { domain: 'thiluxan.com', checkIntervalSeconds: 3600 });
+    expect(await listPublicDomains()).toHaveLength(0);
+    expect(await setDomainPublic('00000000-0000-0000-0000-000000000000', d.id, true)).toBeNull(); // non-owner
+    const updated = await setDomainPublic(userId, d.id, true);
+    expect(updated?.isPublic).toBe(true);
+    expect((await listPublicDomains()).map((x) => x.id)).toEqual([d.id]);
   });
 });

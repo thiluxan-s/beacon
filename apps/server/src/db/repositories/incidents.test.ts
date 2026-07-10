@@ -4,8 +4,9 @@ import { serviceChecks, services } from '../schema';
 import { upsertFromClerk } from './users';
 import {
   describeFailure, findOpenIncident, openIncident, recordObservationIfChanged,
-  resolveIncident, listIncidents, getIncidentWithEvents, type IncidentDetail,
+  resolveIncident, listIncidents, listPublicIncidents, getIncidentWithEvents, type IncidentDetail,
 } from './incidents';
+import { updateService } from './services';
 
 async function seedService(clerkId = 'inc_user') {
   const u = await upsertFromClerk({ clerkUserId: clerkId, email: `${clerkId}@e.com` });
@@ -86,5 +87,16 @@ describe('incidents repository (integration)', () => {
     expect(open).toHaveLength(1);
     const foreign = await listIncidents(other.userId, {});
     expect(foreign).toHaveLength(0);
+  });
+
+  it('listPublicIncidents includes only incidents of public services', async () => {
+    const { userId, service } = await seedService('pi_owner');
+    const checkId = await seedCheck(service.id);
+    await db.transaction((tx) => openIncident(tx, { serviceId: service.id, startedAt: new Date(), triggerCheckId: checkId, detail: detail500 }));
+    expect(await listPublicIncidents()).toHaveLength(0); // service not public yet
+    await updateService(userId, service.id, { isPublic: true });
+    const pub = await listPublicIncidents();
+    expect(pub).toHaveLength(1);
+    expect(pub[0]!.serviceName).toBe('Svc');
   });
 });

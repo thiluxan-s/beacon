@@ -126,6 +126,25 @@ export async function listIncidents(userId: string, opts: { serviceId?: string; 
   }));
 }
 
+export async function listPublicIncidents(): Promise<IncidentListRow[]> {
+  const rows = await db
+    .select({
+      id: incidents.id, serviceId: incidents.serviceId, serviceName: services.name,
+      severity: incidents.severity, startedAt: incidents.startedAt,
+      resolvedAt: incidents.resolvedAt, durationSeconds: incidents.durationSeconds,
+    })
+    .from(incidents)
+    .innerJoin(services, eq(incidents.serviceId, services.id))
+    .where(eq(services.isPublic, true))
+    .orderBy(desc(incidents.startedAt));
+  return rows.map((r) => ({
+    id: r.id, serviceId: r.serviceId, serviceName: r.serviceName, severity: 'down',
+    startedAt: r.startedAt.toISOString(),
+    resolvedAt: r.resolvedAt?.toISOString() ?? null,
+    durationSeconds: r.durationSeconds,
+  }));
+}
+
 export async function getIncidentWithEvents(userId: string, incidentId: string) {
   const list = await listIncidents(userId, {});
   const incident = list.find((i) => i.id === incidentId);
