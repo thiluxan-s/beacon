@@ -187,11 +187,25 @@ These are the calls we made when the design comes under tension.
 - **Summary strip uses per-status count pills + a right-aligned verdict, mirroring `ServicesLiveList` exactly** (pill per non-zero status, red tint only when `issues > 0`), rather than the brief's baseline of a single verdict line with no breakdown. With six possible statuses instead of services' four, a bare "N need attention" line loses the "which kind" signal the services page's pill row gives for free; pills cost nothing extra since they only render when count > 0. Pill order: `healthy` first (positive state), then severity descending (`expired`, `unhealthy`, `expiring_soon`, `warning`), `pending` last — same ordering logic as the services strip (up, down, degraded, paused).
 - **Status column widened to `w-32` (from the brief's `w-28`).** `w-28` is exactly wide enough for `services`' longest label ("Degraded"); domains' longest label is "Expiring Soon" (13 characters incl. space), which risks wrapping to two lines inside the dot + `w-28` badge on every row. Widened by one Tailwind step so the badge never wraps regardless of status.
 
+### Public demo (`/demo`)
+
+**Goal:** The recruiter-facing hero surface — an anonymous, read-only status page showing only the entities the owner marked public, live over the anonymous WebSocket lane. It's the URL that goes in the portfolio, so it has to land the "this is a real, live system" impression in seconds, while staying honestly consistent with the authed product (not a marketing reskin).
+
+**Decisions (Phase 6a):**
+
+- **Contained white panel lifted off the `zinc-50` background with a soft two-layer shadow, rather than the app's edge-to-edge flat surfaces.** `/demo` has no sidebar/app chrome — it stands alone. A bordered, rounded panel (`max-w-2xl`) reads as a self-contained "status page" (the Vercel/Cron-status reference) where a bare full-bleed list would look like an unstyled fragment. The interior keeps the app's flat hairline-divided rows, so it's the same product inside a frame, not a different design language.
+- **Reuses the authed `ConnectionIndicator` in the header.** It reads the same WS context the `PublicWsProvider` supplies, so the live "connected" pulse is a real signal (the socket genuinely connected), not decoration — the fastest way to communicate "this is live" without waiting for a status to change.
+- **No "all systems operational" verdict line, unlike the authed `/services` strip.** The header summary shows only counts (which don't change live) and the connection pulse. A load-time verdict on a page that streams updates could go stale between a status flip and the next server read; on the one surface a stranger judges the system by, an honestly-live per-row dot beats a potentially-wrong headline.
+- **Column sub-headers (`Service`/`Status`/`Last check`, etc.) mirror the authed lists' widths exactly.** Same `w-24`/`w-28` rhythm and mono `9px` uppercase eyebrows, so the public page reads as the real product's list, reinforcing "one system." Headers only render when the section is non-empty.
+- **Footer states "This is the real production dashboard, not a sandbox."** Directly converts the demo-honesty point (PRD: the demo URL *is* production) into a line a recruiter reads, turning the self-hosted-real-infra story into an explicit selling point rather than leaving it implicit.
+
 ---
 
 ## Decisions log
 
 Newest first. Capture meaningful choices with one-sentence rationale.
+
+- **`/demo` wraps the app's flat rows in a contained, shadowed white panel and surfaces a live connection pulse instead of an "all operational" verdict.** Reason: the standalone recruiter-facing page needs to read as a self-contained status page and prove liveness honestly (real WS connection + per-row dots) without a headline that can go stale between updates.
 
 - **Domains list status dots pulse for `expiring_soon`/`expired`/`unhealthy` only, not `warning`.** Reason: `warning` and `expiring_soon` share one amber token, `expired` and `unhealthy` share one red token — without an escalation signal within each color tier, the more urgent status of each pair would be indistinguishable from the less urgent one. Pulse reuses the incidents list's existing "persistent, needs-attention" motion language rather than inventing a new one.
 - **Domains list summary strip adopts `ServicesLiveList`'s per-status pill + verdict pattern instead of the task brief's single verdict line.** Reason: six possible statuses make a bare count-and-verdict line less informative than the services page's breakdown; keeping the two list pages visually identical in this region reinforces "one system."
