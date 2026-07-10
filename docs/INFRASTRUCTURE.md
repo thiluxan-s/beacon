@@ -88,6 +88,54 @@ The read-only guarantee is enforced structurally, not by convention:
 - **The anonymous lane cannot mutate.** The public WS connection (`?public=1`, no token) is receive-only and scoped: it may subscribe **only** to `service:<id>` topics for public services — `global` and private-service topics are refused server-side. There is no anonymous write path; every mutation still goes through a Clerk session (Server Actions) or the internal secret (`/internal/*`), neither of which the demo lane holds.
 - **The public read endpoints are still secret-gated.** `/internal/public/*` requires `INTERNAL_API_SECRET` (the web server proxies them server-side); they are never exposed directly to the browser.
 
+#### Runbook — enabling & curating the public demo
+
+The app user (`thiluxan`, uid 1000) **owns `/opt/beacon/.env` and is in the `docker` group**, so none of this needs `sudo` or `root`. (`sudo` would prompt for `thiluxan`'s password anyway — *not* root's, and *not* the DigitalOcean droplet password, which is root-only and usable via the web Console.)
+
+**1. Find the owner's Clerk user id.** It must match a row in the `users` table (the anonymous WS resolves the owner by it):
+
+```bash
+cd /opt/beacon
+docker compose exec postgres psql -U beacon -d beacon -c "select clerk_user_id, email from users;"
+```
+
+**2. Add the var to `/opt/beacon/.env`.** Use an editor (`nano /opt/beacon/.env`) or append with **`>>`** — never `>`, which would wipe every prod secret in that file:
+
+```bash
+echo 'PUBLIC_OWNER_CLERK_ID=user_xxxxxxxx' >> /opt/beacon/.env   # note the double >>
+grep -n PUBLIC_OWNER_CLERK_ID /opt/beacon/.env                   # confirm it's there exactly once
+```
+
+**3. Recreate the `server` container so it re-reads `.env`.** `docker compose restart` will *not* reload `env_file` — the container must be recreated. But a bare `docker compose up -d server` fails: an interactive shell has no `BEACON_VERSION`, so Compose resolves the image to `:latest`, which isn't present locally and triggers a pull of the **private** ghcr image → `error from registry: denied`. Pin the tag that's already running and skip the registry:
+
+```bash
+docker compose images server                                     # note the TAG (a git SHA)
+BEACON_VERSION=<that-tag> docker compose up -d --pull never --force-recreate server
+docker compose logs --tail=20 server                             # expect "listening on ... 3001" + "LISTEN beacon_events started"
+```
+
+`--pull never` uses the local image (no registry contact); `--force-recreate` guarantees the new env is loaded. The `.env` line persists across future deploys (the pipeline sets `BEACON_VERSION` itself), so the manual pin is a one-time thing for interactive restarts.
+
+**4. Verify** — via the public URL, **not** `localhost:3001`. The server port is `expose`d on the Docker network only (not `ports:`-published), so `curl localhost:3001` from the host returns `000` (nothing listening) — that's by design, not a fault. Test the real path:
+
+```bash
+curl -s https://beacon.thiluxan.com/demo | grep -c "read-only"   # 1 = public mode on, 0 = disabled
+```
+
+**5. Curate what's shown.** Everything is private by default. Add services (`/services`) and domains (`/domains`) in the dashboard, then `/settings` → **Public dashboard** → tick the per-entity **public** boxes. New entities sit at *pending* until the worker checks them (services within seconds, domains within a minute), so add them a few minutes before showing anyone.
+
+**Health-check gotcha (the trailing-slash 308).** The checker requests `${baseUrl}${healthCheckPath}` with `redirect: 'manual'` and expects an exact `200` — it does **not** follow redirects. So a base URL with a trailing slash plus a `/` path becomes `https://host//` (double slash), which platforms like Vercel answer with a `308` redirect → recorded as a failure. Fix: **no trailing slash on the base URL**, and point the path at a route that returns a direct `200` (any 3xx counts as not-`200`). Expected status codes aren't editable in the UI, so match a real `200` endpoint rather than trying to whitelist the redirect.
+
+**Rollback** (turn the demo fully off):
+
+```bash
+sed -i '/^PUBLIC_OWNER_CLERK_ID=/d' /opt/beacon/.env
+docker compose images server            # get the running tag again
+BEACON_VERSION=<that-tag> docker compose up -d --pull never --force-recreate server
+```
+
+`/demo` immediately reverts to the "not enabled" state and the anonymous WS is rejected; the private app is unaffected either way.
+
 ---
 
 ## DNS
