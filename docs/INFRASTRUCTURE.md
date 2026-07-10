@@ -406,12 +406,12 @@ Track real monthly costs here so it's visible.
 | Item | Monthly | Notes |
 |------|---------|-------|
 | DigitalOcean Droplet | $12 | 1 vCPU / 2GB, chosen for WS/worker headroom |
-| Cloudflare | $0 | Free tier |
+| DNS (Namecheap) | $0 | Plain A records, no proxy (Caddy terminates TLS) |
 | Cloudflare R2 (backups) | $0 | Within free tier |
 | UptimeRobot | $0 | Free tier (50 monitors, 5min intervals) |
 | Domain | $0 | Already owned (`thiluxan.com`) |
 | Resend (alert emails) | $0 | Within free tier (3000/mo) |
-| **Total** | **~$16/mo** | |
+| **Total** | **~$12/mo** | |
 
 If costs change (e.g., bumping the Droplet size), update this table.
 
