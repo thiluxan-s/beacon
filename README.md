@@ -23,3 +23,18 @@ This is the real production dashboard at [beacon.thiluxan.com](https://beacon.th
 - **Pluggable integrations** — Vercel & GitHub today, via a drop-in registry.
 - **Public read-only demo mode** — anonymous, opt-in per entity, live.
 - **Single-user auth** (Clerk).
+
+## Why this exists
+
+Wayfare and Investor Thesis, my two prior portfolio projects, are both Next.js on Vercel — serverless front to back. That stack is the right call for a CRUD app with bursty traffic, but it's the wrong shape for a monitor: a function that only runs when invoked can't hold a WebSocket open, can't tick a check on a fixed interval without an external scheduler, and can't watch itself for the gaps between invocations. A monitoring system needs a process that's just *running*, continuously, on infrastructure I control.
+
+So Beacon is the deliberate opposite: a long-running Node server instead of functions, native WebSockets instead of polling, a self-hosted Postgres instead of a managed edge database, and a real deploy pipeline — build, SSH, restart — onto a box I own instead of a `git push` to someone else's platform. The contrast is the point. Wayfare and Investor Thesis prove I can ship product on serverless; Beacon proves I can own the machine underneath it.
+
+## Architecture
+
+Beacon runs as three long-running processes on one VPS: a Next.js frontend (`web`), a Hono API (`server`), and a background `worker` that runs the health checks — plus Postgres. Caddy sits in front, terminating TLS and routing traffic to `web` and `server`. When the worker detects a status change, it doesn't wait for the browser to ask — it pushes the update through a WebSocket fan-out, scoped to per-service topics, so every subscribed client sees the change land in real time. Integrations (Vercel, GitHub, and whatever comes next) are a registry of drop-in modules rather than logic wired into the core — adding a provider means adding a file, not touching the worker or the API.
+
+<!-- DIAGRAM: VPS + Docker network — caddy, web, server, worker, postgres; external Vercel/GitHub APIs; WS + data-flow arrows -->
+> _📐 Architecture diagram coming soon._
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design, including the WebSocket layer and Integration Layer.
