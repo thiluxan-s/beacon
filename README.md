@@ -38,3 +38,27 @@ Beacon runs as three long-running processes on one VPS: a Next.js frontend (`web
 > _📐 Architecture diagram coming soon._
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design, including the WebSocket layer and Integration Layer.
+
+## Infrastructure decisions
+
+This is the part of the project I'd point a hiring manager at first. Anyone can pick a framework; the interesting signal is in the stack *underneath* it — every choice below is a constraint I hit and the trade-off I accepted to get past it, not a default I inherited from a starter template.
+
+**VPS over serverless.** A monitor has to hold WebSocket connections open and tick health checks on a fixed interval — neither of which a function-per-invocation platform does without bolting on an external scheduler and a separate socket service. And monitoring a Vercel app *from* a Vercel deployment is circular: the watcher goes down exactly when the platform does. So Beacon runs as persistent processes on a Droplet I manage. The trade-off is honest — I now own patching, backups, and uptime that Vercel would have handled for free.
+
+**DigitalOcean specifically.** I picked DO for familiarity, its documentation, and trial credit — not AWS, which is CLO-adjacent day-job territory and would muddy the "indie self-hosted" story, and not Render or Railway, which are just serverless with extra steps and defeat the point of owning the box. Hetzner is meaningfully cheaper for the same specs; DO won on how fast I could move on it. The box is a single `s-1vcpu-2gb` running Ubuntu 24.04.
+
+**A long-running Hono server, not Next.js API routes.** The persistent WebSocket fan-out needs a process that stays resident between requests, which App Router route handlers aren't built to be. Splitting the API into its own Hono service also means it restarts independently of the frontend — I can redeploy the dashboard without dropping every open socket, and the worker keeps checking either way. The cost is a second process to run and route to, versus one unified Next.js deployment.
+
+**Caddy over Nginx.** Caddy provisions and renews Let's Encrypt certificates automatically with zero cron jobs or certbot glue, and its config for a single-box reverse proxy is a handful of lines instead of a server block I'd copy-paste and misconfigure. Nginx is more battle-tested at scale and more tunable — but for one box terminating TLS in front of two upstreams, that tunability is complexity I'd be paying for and not using.
+
+**Docker Compose over Kubernetes.** Everything runs on one machine, so orchestration means "start five containers on the same host in the right order" — exactly Compose's job. Reaching for Kubernetes here would be résumé-driven rather than problem-driven; there's no cluster, no autoscaling, no multi-node scheduling to justify it. If Beacon ever genuinely outgrew one box, that's when the k8s conversation earns its keep — not before.
+
+**Self-hosted Postgres on the same box.** Postgres runs as a container alongside the app rather than on managed Neon or RDS, which keeps the whole system reproducible from this repo with no external data dependency — and lets the worker use `LISTEN/NOTIFY` as the real-time backbone instead of adding a message broker. The app is built to degrade gracefully while the database restarts (a "data unavailable, retrying" state, not a crash), which is the price of not having a managed HA setup underneath it.
+
+**Native `ws` over Socket.io.** I wanted plain WebSockets, not Socket.io's transport fallbacks, custom framing, and reconnect magic layered on top — abstractions I'd have to reason around every time the connection misbehaved. The `ws` library is a thin, well-maintained implementation of the actual protocol, so the reconnect/backoff/resubscribe logic is code I wrote and understand. The trade-off is exactly that: I own that logic instead of getting it handed to me.
+
+**No Redis, no AI in v1.** In-process state and Postgres cover everything Beacon does today, so adding Redis would be caching a problem I don't have yet — it goes in when there's a measured reason, not preemptively. AI is left out on purpose: this project's whole job is to signal systems engineering, and a bolted-on LLM feature would blur that signal against the two AI projects already in my portfolio.
+
+**Namecheap plain A records, no proxy in front.** DNS is plain A records pointing straight at the Droplet, with no Cloudflare or other proxy layer between the internet and Caddy. That keeps Caddy terminating TLS directly and makes the request path trivial to reason about — what hits the box is what the client sent. The trade-off is giving up the DDoS absorption and edge caching a proxy would add, which is a fair deal for a single-user portfolio dashboard.
+
+See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the full VPS setup, deploy pipeline, and networking details.
