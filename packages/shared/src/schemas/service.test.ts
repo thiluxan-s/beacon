@@ -33,4 +33,9 @@ describe('ServiceUpdateSchema', () => {
   it('allows a partial patch', () => {
     expect(ServiceUpdateSchema.parse({ paused: true })).toEqual({ paused: true });
   });
+
+  it('accepts isPublic', () => {
+    expect(ServiceUpdateSchema.safeParse({ isPublic: true }).success).toBe(true);
+    expect(ServiceUpdateSchema.safeParse({ isPublic: 'yes' }).success).toBe(false);
+  });
 });
