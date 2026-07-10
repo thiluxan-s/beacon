@@ -113,6 +113,20 @@ export async function setPaused(userId: string, id: string, paused: boolean): Pr
   });
 }
 
+export async function listPublicServices(): Promise<Service[]> {
+  return db.select().from(services).where(eq(services.isPublic, true)).orderBy(services.name);
+}
+
+export async function isServicePublic(serviceId: string): Promise<boolean> {
+  if (!isUuid(serviceId)) return false;
+  const rows = await db
+    .select({ id: services.id })
+    .from(services)
+    .where(and(eq(services.id, serviceId), eq(services.isPublic, true)))
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function findDueServices(limit: number): Promise<Service[]> {
   return db
     .select()

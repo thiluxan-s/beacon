@@ -8,6 +8,8 @@ import {
   createService,
   deleteService,
   getService,
+  isServicePublic,
+  listPublicServices,
   listServicesByUser,
   setPaused,
   updateService,
@@ -130,5 +132,17 @@ describe('services repository (integration)', () => {
     expect(inc.resolvedAt).not.toBeNull();
     const evs = await db.select().from(incidentEvents).where(eq(incidentEvents.incidentId, inc.id));
     expect(evs.some((e) => e.eventType === 'note' && /paused/i.test(e.message))).toBe(true);
+  });
+
+  it('listPublicServices returns only is_public services; isServicePublic reflects the flag', async () => {
+    const userId = await makeUser('pub_svc');
+    const pub = await createService(userId, { name: 'Public', baseUrl: 'https://p.com', healthCheckPath: '/', expectedStatusCodes: [200], checkIntervalSeconds: 60, timeoutSeconds: 10 });
+    const priv = await createService(userId, { name: 'Private', baseUrl: 'https://q.com', healthCheckPath: '/', expectedStatusCodes: [200], checkIntervalSeconds: 60, timeoutSeconds: 10 });
+    await updateService(userId, pub.id, { isPublic: true });
+    const list = await listPublicServices();
+    expect(list.map((s) => s.id)).toEqual([pub.id]);
+    expect(await isServicePublic(pub.id)).toBe(true);
+    expect(await isServicePublic(priv.id)).toBe(false);
+    expect(await isServicePublic('not-a-uuid')).toBe(false);
   });
 });

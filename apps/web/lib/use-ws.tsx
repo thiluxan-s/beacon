@@ -35,3 +35,28 @@ export function useServiceStatusSubscription(topic: string, handler: (e: WsEvent
   const socket = useContext(Ctx);
   useEffect(() => socket?.subscribe(topic, handler), [socket, topic, handler]);
 }
+
+// Anonymous read-only lane for /demo — no token, connects with ?public=1.
+export function PublicWsProvider({ children }: { children: React.ReactNode }) {
+  const socket = useMemo(() => new BeaconSocket({ url: clientEnv.NEXT_PUBLIC_WS_URL, public: true }), []);
+  useEffect(() => {
+    void socket.connect();
+  }, [socket]);
+  return <Ctx.Provider value={socket}>{children}</Ctx.Provider>;
+}
+
+// Subscribe to many topics in one effect (lint-safe: one hook call, not a loop of
+// hooks). A single component needs to subscribe to every public service's topic.
+export function useServiceStatusSubscriptions(topics: string[], handler: (e: WsEvent) => void) {
+  const socket = useContext(Ctx);
+  const key = topics.join('|');
+  useEffect(() => {
+    if (!socket) return;
+    const unsubs = topics.map((t) => socket.subscribe(t, handler));
+    return () => {
+      for (const u of unsubs) u();
+    };
+    // `topics` is derived from `key`; `handler` is memoized by the caller.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, key, handler]);
+}

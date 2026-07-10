@@ -48,6 +48,20 @@ export async function deleteDomain(userId: string, id: string): Promise<boolean>
   return rows.length > 0;
 }
 
+export async function listPublicDomains(): Promise<Domain[]> {
+  return db.select().from(domains).where(eq(domains.isPublic, true)).orderBy(asc(domains.domain));
+}
+
+export async function setDomainPublic(userId: string, id: string, isPublic: boolean): Promise<Domain | null> {
+  if (!isUuid(userId) || !isUuid(id)) return null;
+  const rows = await db
+    .update(domains)
+    .set({ isPublic, updatedAt: new Date() })
+    .where(and(eq(domains.id, id), eq(domains.userId, userId)))
+    .returning();
+  return rows[0] ?? null;
+}
+
 export async function findDueDomains(limit: number): Promise<Domain[]> {
   return db.select().from(domains).where(lte(domains.nextCheckAt, new Date())).orderBy(asc(domains.nextCheckAt)).limit(limit);
 }

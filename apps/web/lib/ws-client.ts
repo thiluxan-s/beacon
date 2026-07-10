@@ -14,7 +14,7 @@ export class BeaconSocket {
   private stateCbs = new Set<(s: ConnectionState) => void>();
   state: ConnectionState = 'disconnected';
 
-  constructor(private opts: { url: string; getToken: () => Promise<string | null> }) {}
+  constructor(private opts: { url: string; getToken?: () => Promise<string | null>; public?: boolean }) {}
 
   onStateChange(cb: (s: ConnectionState) => void): () => void {
     this.stateCbs.add(cb);
@@ -27,12 +27,19 @@ export class BeaconSocket {
   }
 
   async connect(): Promise<void> {
-    const token = await this.opts.getToken();
-    if (!token) {
-      this.setState('disconnected');
-      return;
+    let wsUrl: string;
+    if (this.opts.public) {
+      // Anonymous read-only lane: no token, receive-only, public-topic-scoped server-side.
+      wsUrl = `${this.opts.url}?public=1`;
+    } else {
+      const token = await this.opts.getToken?.();
+      if (!token) {
+        this.setState('disconnected');
+        return;
+      }
+      wsUrl = `${this.opts.url}?token=${encodeURIComponent(token)}`;
     }
-    const ws = new WebSocket(`${this.opts.url}?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(wsUrl);
     this.ws = ws;
     ws.addEventListener('open', () => {
       this.attempt = 0;
@@ -42,12 +49,10 @@ export class BeaconSocket {
     ws.addEventListener('message', (ev) => {
       try {
         const data = JSON.parse(String(ev.data)) as WsEvent;
-        const handlers =
-          data.type === 'service.status_changed'
-            ? this.topics.get(`service:${data.serviceId}`)
-            : undefined;
+        // Every WsEvent carries serviceId — route all of them (incl. incident.*) to
+        // the service topic, not just status_changed.
         for (const h of this.topics.get('global') ?? []) h(data);
-        for (const h of handlers ?? []) h(data);
+        for (const h of this.topics.get(`service:${data.serviceId}`) ?? []) h(data);
       } catch {
         /* ignore malformed */
       }

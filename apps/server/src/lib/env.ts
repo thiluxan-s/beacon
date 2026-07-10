@@ -23,6 +23,9 @@ const EnvSchema = z.object({
   // (worker idles, sendEmail no-ops), so dev without Resend boots cleanly.
   RESEND_API_KEY: z.string().optional(),
   ALERT_FROM_EMAIL: z.string().email().or(z.literal('')).optional(),
+  // Public read-only demo mode (Phase 6a). Optional — set to the owner's Clerk id
+  // to enable /demo + the anonymous read-only WS; unset disables public mode entirely.
+  PUBLIC_OWNER_CLERK_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

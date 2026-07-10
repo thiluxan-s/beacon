@@ -4,6 +4,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 // /api/clerk/webhook is intentionally excluded — it authenticates via Svix HMAC (Task 9).
 const isProtectedRoute = createRouteMatcher([
   '/services(.*)',
+  '/domains(.*)',
   '/incidents(.*)',
   '/settings(.*)',
 ]);

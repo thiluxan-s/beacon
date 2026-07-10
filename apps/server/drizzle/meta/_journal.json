@@ -43,6 +43,13 @@
       "when": 1783392252353,
       "tag": "0005_unusual_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783424356460,
+      "tag": "0006_perpetual_unus",
+      "breakpoints": true
     }
   ]
 }

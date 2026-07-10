@@ -4,15 +4,16 @@ import type { HealthResponse } from '@beacon/shared';
 import { ServiceCreateSchema, ServiceUpdateSchema, NotificationSettingsUpdateSchema, DomainCreateSchema } from '@beacon/shared';
 import { env } from './lib/env';
 import { getByClerkId, upsertFromClerk } from './db/repositories/users';
-import { createService, deleteService, getService, listChecks, listServicesByUser, setPaused, updateService } from './db/repositories/services';
+import { createService, deleteService, getService, listChecks, listPublicServices, listServicesByUser, setPaused, updateService } from './db/repositories/services';
+import { publicModeEnabled } from './lib/public-mode';
 import { IntegrationRegistry } from './integrations/registry';
 import type { IntegrationDefinition } from './integrations/types';
 import { encrypt } from './lib/crypto';
 import { upsertIntegration, listIntegrations, deleteIntegration } from './db/repositories/service-integrations';
 import type { ServiceIntegration } from './db/repositories/service-integrations';
-import { listIncidents, getIncidentWithEvents } from './db/repositories/incidents';
+import { listIncidents, listPublicIncidents, getIncidentWithEvents } from './db/repositories/incidents';
 import { getResolvedSettings, upsertSettings } from './db/repositories/notification-settings';
-import { createDomain, listDomainsByUser, deleteDomain, recheckDomain, DomainExistsError } from './db/repositories/domains';
+import { createDomain, listDomainsByUser, listPublicDomains, deleteDomain, recheckDomain, setDomainPublic, DomainExistsError } from './db/repositories/domains';
 
 const UpsertUserSchema = z.object({ clerkUserId: z.string().min(1), email: z.string().email() });
 
@@ -100,6 +101,13 @@ export function createRouter(): Hono {
     await next();
   });
   app.use('/internal/domains/*', async (c, next) => {
+    if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
+    await next();
+  });
+
+  // Public read-only endpoints: secret-gated (the web server proxies them), but 404
+  // when public mode is disabled. They expose only is_public entities as minimal DTOs.
+  app.use('/internal/public/*', async (c, next) => {
     if (c.req.header('x-internal-secret') !== env.INTERNAL_API_SECRET) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
@@ -280,6 +288,32 @@ export function createRouter(): Hono {
     if (!userId) return c.json({ error: 'unknown user' }, 401);
     const domain = await recheckDomain(userId, c.req.param('id'));
     return domain ? c.json(domain) : c.json({ error: 'not found' }, 404);
+  });
+
+  app.post('/internal/domains/:id/visibility', async (c) => {
+    const userId = await resolveUserId(c);
+    if (!userId) return c.json({ error: 'unknown user' }, 401);
+    const body = (await c.req.json().catch(() => null)) as { isPublic?: unknown } | null;
+    if (typeof body?.isPublic !== 'boolean') return c.json({ error: 'invalid body' }, 400);
+    const domain = await setDomainPublic(userId, c.req.param('id'), body.isPublic);
+    return domain ? c.json(domain) : c.json({ error: 'not found' }, 404);
+  });
+
+  app.get('/internal/public/services', async (c) => {
+    if (!publicModeEnabled()) return c.json({ error: 'not found' }, 404);
+    const rows = await listPublicServices();
+    return c.json({ services: rows.map((s) => ({ id: s.id, name: s.name, currentStatus: s.currentStatus, lastCheckAt: s.lastCheckAt?.toISOString() ?? null })) });
+  });
+
+  app.get('/internal/public/incidents', async (c) => {
+    if (!publicModeEnabled()) return c.json({ error: 'not found' }, 404);
+    return c.json({ incidents: await listPublicIncidents() });
+  });
+
+  app.get('/internal/public/domains', async (c) => {
+    if (!publicModeEnabled()) return c.json({ error: 'not found' }, 404);
+    const rows = await listPublicDomains();
+    return c.json({ domains: rows.map((d) => ({ id: d.id, domain: d.domain, currentStatus: d.currentStatus, sslExpiresAt: d.sslExpiresAt?.toISOString() ?? null, domainExpiresAt: d.domainExpiresAt?.toISOString() ?? null })) });
   });
 
   return app;

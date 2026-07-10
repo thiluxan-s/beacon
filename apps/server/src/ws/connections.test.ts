@@ -46,4 +46,21 @@ describe('ConnectionHub', () => {
     hub.broadcast({ ...event, serviceId: 'other' });
     expect(ws.sent).toHaveLength(0);
   });
+
+  it('public conn: rejects global and private, allows public service topic', async () => {
+    const hub = new ConnectionHub();
+    const id = hub.add(fakeWs(), 'owner-uuid', true); // public conn
+    const deps = { isServicePublic: async (sid: string) => sid === 'pub-svc' };
+    expect(await hub.subscribe(id, 'global', deps)).toBe(false);
+    expect(await hub.subscribe(id, 'service:priv-svc', deps)).toBe(false);
+    expect(await hub.subscribe(id, 'service:pub-svc', deps)).toBe(true);
+  });
+
+  it('authed conn unchanged (ownership check)', async () => {
+    const hub = new ConnectionHub();
+    const id = hub.add(fakeWs(), 'u1'); // non-public
+    expect(await hub.subscribe(id, 'global')).toBe(true);
+    expect(await hub.subscribe(id, 'service:x', { canAccessService: async () => true })).toBe(true);
+    expect(await hub.subscribe(id, 'service:y', { canAccessService: async () => false })).toBe(false);
+  });
 });

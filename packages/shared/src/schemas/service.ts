@@ -22,5 +22,6 @@ export type ServiceCreateInput = z.infer<typeof ServiceCreateSchema>;
 export const ServiceUpdateSchema = ServiceCreateSchema.partial().extend({
   paused: z.boolean().optional(),
   alertsEnabled: z.boolean().optional(),
+  isPublic: z.boolean().optional(),
 });
 export type ServiceUpdateInput = z.infer<typeof ServiceUpdateSchema>;

@@ -17,6 +17,7 @@ export type ServiceDto = {
   timeoutSeconds: number;
   expectedStatusCodes: number[];
   alertsEnabled: boolean;
+  isPublic: boolean;
 };
 
 function headers(clerkUserId: string): HeadersInit {

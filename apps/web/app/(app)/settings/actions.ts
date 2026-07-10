@@ -6,6 +6,7 @@ import { NotificationSettingsUpdateSchema } from '@beacon/shared';
 
 import { updateNotificationSettings } from '@/lib/notification-settings-api';
 import { updateServiceOnServer } from '@/lib/services-api';
+import { setDomainPublicOnServer } from '@/lib/domains-api';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -38,5 +39,31 @@ export async function toggleServiceAlertsAction(serviceId: string, alertsEnabled
   } catch (err) {
     console.error('[beacon-web] toggleServiceAlertsAction failed', err);
     return { ok: false, error: 'Could not update the service.' };
+  }
+}
+
+export async function toggleServicePublicAction(id: string, isPublic: boolean): Promise<Result> {
+  try {
+    const clerkId = await requireClerkId();
+    await updateServiceOnServer(clerkId, id, { isPublic });
+    revalidatePath('/settings');
+    revalidatePath('/demo');
+    return { ok: true };
+  } catch (err) {
+    console.error('[beacon-web] toggleServicePublicAction failed', err);
+    return { ok: false, error: 'Could not update visibility.' };
+  }
+}
+
+export async function toggleDomainPublicAction(id: string, isPublic: boolean): Promise<Result> {
+  try {
+    const clerkId = await requireClerkId();
+    await setDomainPublicOnServer(clerkId, id, isPublic);
+    revalidatePath('/settings');
+    revalidatePath('/demo');
+    return { ok: true };
+  } catch (err) {
+    console.error('[beacon-web] toggleDomainPublicAction failed', err);
+    return { ok: false, error: 'Could not update visibility.' };
   }
 }

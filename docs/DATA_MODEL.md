@@ -62,6 +62,7 @@ The central entity. Every monitored thing is a service.
   next_check_at: timestamptz (nullable)
   paused: boolean (default false)
   alerts_enabled: boolean (default true)
+  is_public: boolean (default false)            // opt-in visibility on the public /demo dashboard (Phase 6a)
   consecutive_failures: integer (default 0)     // strike counter powering 2-check debounce (Phase 5a)
   consecutive_successes: integer (default 0)    // strike counter powering 2-check debounce (Phase 5a)
   created_at: timestamptz
@@ -74,6 +75,8 @@ The central entity. Every monitored thing is a service.
 **Why `expected_status_codes` as an array?** Some services intentionally return 401 for unauthenticated requests but are still "up." The default is `[200]` but the user can configure `[200, 401, 403]` for a service where those count as healthy.
 
 **Why `paused` AND a `paused` enum value on `current_status`?** Paused is a *configuration* (don't check), not just a *status*. Storing both lets us pause without losing track of the last real status.
+
+**`is_public` (Phase 6a):** Owner opt-in flag controlling whether a service appears on the public `/demo` dashboard. Defaults to `false` — nothing is public until explicitly toggled. Incidents don't carry their own visibility flag; they inherit it from `incidents.service_id → services.is_public`.
 
 ### `service_checks`
 
@@ -172,6 +175,7 @@ Domains are tracked separately from services. A service uses a domain; the domai
   domain: text                                  // "wayfare.thiluxan.com"
   check_interval_seconds: integer (default 3600)  // hourly for domains; faster doesn't help
   current_status: enum('pending', 'healthy', 'warning', 'expiring_soon', 'expired', 'unhealthy')
+  is_public: boolean (default false)            // opt-in visibility on the public /demo dashboard (Phase 6a)
   ssl_expires_at: timestamptz (nullable)
   domain_expires_at: timestamptz (nullable)
   ssl_issuer: text (nullable)                   // "Let's Encrypt", "Cloudflare", etc.
@@ -185,6 +189,8 @@ Domains are tracked separately from services. A service uses a domain; the domai
 **Why a separate table?** Multiple services can share a domain (e.g., I might run 3 services under `*.thiluxan.com`). Checking the domain once and joining is cleaner than re-checking SSL for every service.
 
 A unique index on `(user_id, domain)` prevents the same user from adding the same domain twice. A `next_check_at` index supports the worker's due-check scan (same pattern as `services`).
+
+**`is_public` (Phase 6a):** Same opt-in semantics as `services.is_public` — defaults to `false`, toggled independently per domain.
 
 ### `domain_checks`
 
