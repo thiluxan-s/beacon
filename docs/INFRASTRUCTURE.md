@@ -54,6 +54,8 @@ INTEGRATIONS_ENCRYPTION_KEY=changeme-openssl-rand-base64-32
 # Email alerts (Phase 5b) — both optional. Unset → alerting disabled, worker idles cleanly.
 RESEND_API_KEY=re_xxx
 ALERT_FROM_EMAIL=alerts@thiluxan.com
+# Public demo mode (Phase 6a) — optional. Set to the owner's Clerk id to enable /demo; unset = off.
+PUBLIC_OWNER_CLERK_ID=user_xxx
 ```
 
 The WebSocket URL (`NEXT_PUBLIC_WS_URL`, e.g. `wss://api.beacon.thiluxan.com/ws`) landed in Phase 3b. Because it is a `NEXT_PUBLIC_*` var, it is inlined into the web bundle at **build time** — it is baked into the web image by the CI build-arg (see the deploy workflow), not read from `/opt/beacon/.env` at runtime, so it does not appear in the list above. The Resend email-alert vars (`RESEND_API_KEY`, `ALERT_FROM_EMAIL`) landed in Phase 5b — see the Email alerts note below. `POSTGRES_PASSWORD`, `INTERNAL_API_SECRET`, and `INTEGRATIONS_ENCRYPTION_KEY` are each generated once with `openssl rand -base64 32`.
@@ -75,6 +77,16 @@ Setup:
 **Both vars are optional and safe by default.** If either is unset (or blank), the env schema still validates, the worker logs `alerts disabled: email not configured` once and idles (it runs no alert queries), and the rest of the app is unaffected — so a VPS without Resend configured, or local dev, boots and runs cleanly. There is no `deploy.sh` fail-fast for these (unlike `INTEGRATIONS_ENCRYPTION_KEY`) precisely because absence is a supported state.
 
 The destination address is configured in-app on `/settings` (defaults to the Clerk account email); alerts can be toggled globally and per-service there. `ALERT_FROM_EMAIL` is only the *sender*.
+
+### Public demo mode (Phase 6a)
+
+`PUBLIC_OWNER_CLERK_ID` is the single, optional gate for the anonymous read-only demo. Set it to the owner's Clerk user id to enable the public `/demo` dashboard and the anonymous WebSocket lane; **unset (or blank) disables the feature entirely** — the public read endpoints return `404`, the anonymous WS upgrade is rejected, and `/demo` renders a "not enabled" state. It is read live from `process.env` (like the Resend vars), so toggling it and restarting the `server` cleanly turns the demo on or off with no rebuild.
+
+The read-only guarantee is enforced structurally, not by convention:
+
+- **Only opt-in entities are ever exposed.** Services and domains carry an `is_public` flag (default `false`, toggled per-entity on `/settings`); the public endpoints and the anonymous WS only ever return/stream `is_public` rows, and incidents inherit visibility from their service. Public DTOs are minimal — name/status/timings only, **no** base URLs, config, credentials, or alert settings.
+- **The anonymous lane cannot mutate.** The public WS connection (`?public=1`, no token) is receive-only and scoped: it may subscribe **only** to `service:<id>` topics for public services — `global` and private-service topics are refused server-side. There is no anonymous write path; every mutation still goes through a Clerk session (Server Actions) or the internal secret (`/internal/*`), neither of which the demo lane holds.
+- **The public read endpoints are still secret-gated.** `/internal/public/*` requires `INTERNAL_API_SECRET` (the web server proxies them server-side); they are never exposed directly to the browser.
 
 ---
 
