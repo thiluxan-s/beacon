@@ -252,9 +252,12 @@ Pushing to `main` triggers GitHub Actions. PR builds run typecheck/lint/test but
 12. docker compose up -d (rolling update)
 13. Verify: curl beacon.<domain>/health expects 200 within 30s, else exit non-zero
 14. If verify fails: roll back by updating tag back to previous SHA, up -d again, notify
+15. On success: prune old app images — keep only the current + previous SHA of `beacon-web`/`beacon-server` (rollback re-pulls the previous, so it is deliberately retained) plus a dangling-layer sweep
 ```
 
 The deploy script lives at `infrastructure/deploy/deploy.sh`. CI calls it over SSH.
+
+**Disk hygiene (image pruning).** A successful, health-verified deploy ends by pruning old app images so `/var/lib/docker` doesn't fill with accumulated deploy tags (a full disk once broke a deploy with "no space left on device" mid-layer-extract). `prune_old_images` in `deploy.sh` keeps exactly the current and previous SHA of each app image — the previous is kept on purpose because the rollback step re-pulls it, and a blanket `docker image prune -af` would remove it (it isn't attached to a running container) and break rollback. It also runs `docker image prune -f` for dangling layers. It runs only after verification passes and never fails the deploy (all removals are best-effort). It first takes effect on the **next** deploy after this change ships.
 
 ### Secrets in CI
 

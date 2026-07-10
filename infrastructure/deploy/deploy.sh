@@ -47,9 +47,30 @@ verify() {
   return 1
 }
 
+# Keep only the current and previous version of each app image so the disk does
+# not fill with old deploy tags (a full disk broke a deploy once — "no space left
+# on device" while extracting a layer). The previous version is deliberately kept:
+# the rollback path below re-pulls it, and those images are not attached to a
+# running container, so a blanket `docker image prune -af` would delete them and
+# break rollback. Runs only after a health-verified deploy; never fails the deploy.
+prune_old_images() {
+  local keep_new="$1" keep_prev="$2"
+  for repo in ghcr.io/thiluxan-s/beacon-web ghcr.io/thiluxan-s/beacon-server; do
+    docker images "$repo" --format '{{.Repository}}:{{.Tag}} {{.Tag}}' | while read -r ref tag; do
+      [ "$tag" = "<none>" ] && continue
+      [ "$tag" = "$keep_new" ] && continue
+      [ -n "$keep_prev" ] && [ "$tag" = "$keep_prev" ] && continue
+      docker rmi "$ref" >/dev/null 2>&1 || true
+    done
+  done
+  docker image prune -f >/dev/null 2>&1 || true   # dangling layers only — never a tagged version
+}
+
 echo "[deploy] verifying health"
 if verify "$API_HEALTH" && verify "$WEB_HEALTH"; then
   echo "$NEW_VERSION" > "$VERSION_FILE"
+  echo "[deploy] pruning old images (keeping ${NEW_VERSION}${PREVIOUS_VERSION:+, ${PREVIOUS_VERSION}})"
+  prune_old_images "$NEW_VERSION" "$PREVIOUS_VERSION" || true
   echo "[deploy] OK @ ${NEW_VERSION}"
   exit 0
 fi
