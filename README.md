@@ -62,3 +62,38 @@ This is the part of the project I'd point a hiring manager at first. Anyone can 
 **Namecheap plain A records, no proxy in front.** DNS is plain A records pointing straight at the Droplet, with no Cloudflare or other proxy layer between the internet and Caddy. That keeps Caddy terminating TLS directly and makes the request path trivial to reason about — what hits the box is what the client sent. The trade-off is giving up the DDoS absorption and edge caching a proxy would add, which is a fair deal for a single-user portfolio dashboard.
 
 See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the full VPS setup, deploy pipeline, and networking details.
+
+## Adding an integration
+
+Every data source Beacon knows how to read — Vercel deploys, GitHub Actions runs, whatever comes next — is a single file implementing the `IntegrationDefinition` interface in [`apps/server/src/integrations/types.ts`](apps/server/src/integrations/types.ts): a Zod schema for credentials, a Zod schema for config, field metadata for the generic attach form, a `testCredentials` check, and a `fetchData` call. Wiring it in is one entry in the registry map:
+
+```ts
+// apps/server/src/integrations/registry.ts
+export const IntegrationRegistry: Map<string, IntegrationDefinition> = new Map([
+  [vercelIntegration.id, vercelIntegration as IntegrationDefinition],
+  [githubIntegration.id, githubIntegration as IntegrationDefinition],
+  // add a new integration here — that's the whole wiring change
+]);
+```
+
+That's the entire seam: drop `apps/server/src/integrations/railway.ts`, implement the interface, add one line to the map above. No changes to the worker, the API routes, or the WebSocket fan-out — they all consume `IntegrationRegistry` generically. If adding a provider ever required touching core code, that would mean the abstraction had a hole in it. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full Integration Layer design, including the credential-encryption and attach-form details.
+
+## Tech stack
+
+| Layer | Choice |
+|-------|--------|
+| Backend | Node.js + Hono (long-running HTTP + WS) |
+| Frontend | Next.js 16 (App Router) + TypeScript strict |
+| Realtime | Native `ws` |
+| Database | Postgres + Drizzle ORM |
+| Styling | Tailwind + shadcn/ui |
+| Auth | Clerk (single-user) |
+| Validation | Zod |
+| Reverse proxy / TLS | Caddy 2 (auto Let's Encrypt) |
+| Containers | Docker Compose |
+| Host | DigitalOcean Droplet, Ubuntu 24.04 |
+| CI/CD | GitHub Actions → ghcr → SSH deploy |
+
+## Deploy pipeline
+
+A push to `main` triggers GitHub Actions: typecheck, lint, and tests run first, then the `web` and `server` images build and push to ghcr. Deployment happens over SSH via [`infrastructure/deploy/deploy.sh`](infrastructure/deploy/deploy.sh), which pulls the new images, runs any pending database migrations, brings the stack up with `docker compose up`, and health-checks both `web` and `server` before considering the deploy complete — rolling back automatically if either fails. See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the full VPS setup, deploy pipeline, and networking details.
