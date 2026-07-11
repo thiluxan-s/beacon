@@ -26,7 +26,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    // `dynamic` is required for our Content-Security-Policy: it routes Clerk
+    // through DynamicClerkScripts, which stamps the per-request CSP nonce onto
+    // clerk.browser.js. Without it, Clerk injects its script client-side with no
+    // nonce and our strict-dynamic script-src blocks it. Do not remove without
+    // re-validating the CSP. See docs/superpowers/specs/2026-07-11-csp-report-only-design.md.
+    <ClerkProvider dynamic>
       <html
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} h-full`}
