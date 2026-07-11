@@ -5,6 +5,7 @@ Phase 6 final security review — a whole-app audit against the Phase 6 checklis
 - **Reviewed:** `main` @ `4991568`, 2026-07-10.
 - **Method:** static review of the codebase, infrastructure config, and git history; the Phase 6a public-demo enforcement was additionally verified live earlier (secret-gated `404`, minimal DTOs, anon WS refusing `global`/private topics).
 - **Bottom line:** no Critical or High findings. One Medium (availability) and a few low/hardening items, tracked below.
+- **Update (2026-07-11):** all findings are now **resolved or accepted** — every code/infra fix is deployed and verified live in production, and both Ops items (firewall/SSH, token rotation) are confirmed done. The review is closed.
 
 ## Status summary
 
@@ -15,8 +16,8 @@ Phase 6 final security review — a whole-app audit against the Phase 6 checklis
 | 3 | API host missing `X-Content-Type-Options: nosniff` | Low | Fixed — live in prod, verified (PRs #23, #24) |
 | 4 | Internal-secret compare not constant-time | Low | Fixed (this PR) |
 | 5 | WS auth token passed as `?token=` query param | Low | Accepted (browser WS can't set headers) |
-| 6 | Firewall/SSH runtime state unverified | Ops | Action required (verify on VPS) |
-| 7 | Rotate leaked Vercel + GitHub tokens | Ops | Action required (not in git history) |
+| 6 | Firewall/SSH runtime state unverified | Ops | Verified on VPS — ufw active (22/80/443 only), root-login + password-auth disabled |
+| 7 | Rotate leaked Vercel + GitHub tokens | Ops | Resolved — both revoked + recreated, integrations re-attached |
 
 ## Verified strong (no action)
 
@@ -73,6 +74,10 @@ sudo ufw status verbose
 sudo sshd -T | grep -Ei 'permitrootlogin|passwordauthentication'
 ```
 
+**Verified (2026-07-11):** `ufw status verbose` → `Status: active`, `Default: deny (incoming)` + `deny (routed)`, with only `22/tcp`, `80/tcp`, `443/tcp` allowed in (v4 + v6). SSH: the `sshd_config.d/00-beacon-hardening.conf` drop-in sets `PermitRootLogin no` + `PasswordAuthentication no`, and — because the main config's `Include …sshd_config.d/*.conf` precedes its stock `PermitRootLogin yes` — first-match-wins makes the hardened values effective.
+
 ### 7. Rotate the leaked Vercel + GitHub tokens — Ops
 
 A real Vercel token and GitHub PAT were exposed in dev logs during earlier phase smoke tests. They are **not** in git history, but they should still be revoked and recreated.
+
+**Resolved (2026-07-11):** both tokens revoked and recreated at their providers, and the Vercel/GitHub integrations re-attached in-app (credentials are stored AES-256-GCM-encrypted, never in the repo/CI/`.env`). The original dev-log leak vector is also closed — `apps/web/next.config.ts` sets `logging: { serverFunctions: false }`, so Next no longer echoes Server Action arguments (including credential fields) into the dev log.
