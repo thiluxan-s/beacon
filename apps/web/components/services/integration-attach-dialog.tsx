@@ -110,7 +110,7 @@ export function IntegrationAttachDialog({
             </div>
 
             <div className="space-y-4 px-5 py-4">
-              {active.fields.map((f, i) => (
+              {active.fields.map((f) => (
                 <div key={f.name} className="space-y-1.5">
                   <label
                     htmlFor={`iad-${f.name}`}
@@ -124,7 +124,6 @@ export function IntegrationAttachDialog({
                     name={f.name}
                     type={f.type}
                     required={!f.optional}
-                    autoFocus={i === 0}
                     placeholder={f.placeholder}
                     className="h-8 font-mono text-[12px]"
                   />

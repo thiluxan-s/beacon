@@ -115,7 +115,6 @@ export function ServiceFormDialog({
                   id="sfd-name"
                   name="name"
                   required
-                  autoFocus
                   defaultValue={service?.name ?? ''}
                   placeholder="Wayfare"
                   className="h-8 text-[13px]"

@@ -89,7 +89,6 @@ export function DomainFormDialog() {
                   id="dfd-domain"
                   name="domain"
                   required
-                  autoFocus
                   placeholder="thiluxan.com"
                   className="h-8 font-mono text-[12px]"
                 />
