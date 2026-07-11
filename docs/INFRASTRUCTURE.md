@@ -161,7 +161,7 @@ Auto-SSL via Let's Encrypt with zero config. Caddy renews certificates automatic
 
 ### Caddyfile
 
-Lives at `infrastructure/Caddyfile` in the repo, deployed to `/opt/beacon/Caddyfile` on the VPS, mounted into the Caddy container via Docker Compose.
+Lives at `infrastructure/Caddyfile` in the repo, deployed to `/opt/beacon/Caddyfile` on the VPS, mounted into the Caddy container via Docker Compose (read-only). CI syncs this file to the VPS on every deploy and `deploy.sh` reloads Caddy afterward (`caddy validate` then `caddy reload`), so header/proxy changes take effect automatically — a bind-mounted config edit alone does **not** recreate the container, and a running Caddy keeps its old in-memory config until reloaded. If `validate` fails, the reload is skipped and Caddy stays on its previous config (a bad Caddyfile can't take the proxy down).
 
 ```caddy
 # beacon.<domain> — Next.js web app
@@ -246,16 +246,18 @@ Pushing to `main` triggers GitHub Actions. PR builds run typecheck/lint/test but
 6. build web image (Docker buildx, multi-platform amd64)
 7. build server image (Docker buildx)
 8. push both images to ghcr.io with SHA tag
-9. SSH into VPS
-10. Pull new images
-11. Run any pending DB migrations (`npm run db:migrate` inside the server container)
-12. docker compose up -d (rolling update)
-13. Verify: curl beacon.<domain>/health expects 200 within 30s, else exit non-zero
-14. If verify fails: roll back by updating tag back to previous SHA, up -d again, notify
-15. On success: prune old app images — keep only the current + previous SHA of `beacon-web`/`beacon-server` (rollback re-pulls the previous, so it is deliberately retained) plus a dangling-layer sweep
+9. Sync infra config to the VPS (scp `Caddyfile`, `docker-compose.yml`, `deploy/deploy.sh` → `/opt/beacon`; never `.env`)
+10. SSH into VPS
+11. Pull new images
+12. Run any pending DB migrations (`npm run db:migrate` inside the server container)
+13. docker compose up -d (rolling update)
+14. Reload Caddy so synced Caddyfile changes take effect (`caddy validate` then `caddy reload`; skipped if validate fails, best-effort)
+15. Verify: curl beacon.<domain>/health expects 200 within 30s, else exit non-zero
+16. If verify fails: roll back by updating tag back to previous SHA, up -d again, notify
+17. On success: prune old app images — keep only the current + previous SHA of `beacon-web`/`beacon-server` (rollback re-pulls the previous, so it is deliberately retained) plus a dangling-layer sweep
 ```
 
-The deploy script lives at `infrastructure/deploy/deploy.sh`. CI calls it over SSH.
+The deploy script lives at `infrastructure/deploy/deploy.sh`. CI syncs it (and the Caddyfile + compose file) to `/opt/beacon` before calling it over SSH, so infra-as-code changes ship without a manual copy. `.env` is never synced — it holds secrets and lives only on the VPS.
 
 **Disk hygiene (image pruning).** A successful, health-verified deploy ends by pruning old app images so `/var/lib/docker` doesn't fill with accumulated deploy tags (a full disk once broke a deploy with "no space left on device" mid-layer-extract). `prune_old_images` in `deploy.sh` keeps exactly the current and previous SHA of each app image — the previous is kept on purpose because the rollback step re-pulls it, and a blanket `docker image prune -af` would remove it (it isn't attached to a running container) and break rollback. It also runs `docker image prune -f` for dangling layers. It runs only after verification passes and never fails the deploy (all removals are best-effort). It first takes effect on the **next** deploy after this change ships.
 
