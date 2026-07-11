@@ -61,7 +61,7 @@ export default async function SettingsPage() {
               <ul className="divide-y divide-zinc-200/40">
                 {services.map((s) => (
                   <li key={s.id} className="flex items-center justify-between gap-4 px-5 py-2.5">
-                    <span className="truncate text-[13px] font-medium text-zinc-900">{s.name}</span>
+                    <span className="min-w-0 truncate text-[13px] font-medium text-zinc-900">{s.name}</span>
                     <ServiceAlertToggle service={s} />
                   </li>
                 ))}
@@ -70,7 +70,7 @@ export default async function SettingsPage() {
           </section>
 
           <section className="flex flex-1 flex-col">
-            <div className="flex items-baseline justify-between px-5 pt-4 pb-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 pt-4 pb-2">
               <h2 className="font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Public dashboard</h2>
               <Link href="/demo" className="text-[11px] text-zinc-500 hover:text-zinc-800 hover:underline">
                 View public dashboard →
@@ -88,7 +88,7 @@ export default async function SettingsPage() {
               <ul className="divide-y divide-zinc-200/40">
                 {services.map((s) => (
                   <li key={s.id} className="flex items-center justify-between gap-4 px-5 py-2.5">
-                    <span className="truncate text-[13px] font-medium text-zinc-900">{s.name}</span>
+                    <span className="min-w-0 truncate text-[13px] font-medium text-zinc-900">{s.name}</span>
                     <ServicePublicToggle service={s} />
                   </li>
                 ))}
@@ -102,7 +102,7 @@ export default async function SettingsPage() {
               <ul className="divide-y divide-zinc-200/40">
                 {domains.map((d) => (
                   <li key={d.id} className="flex items-center justify-between gap-4 px-5 py-2.5">
-                    <span className="truncate font-mono text-[13px] text-zinc-900">{d.domain}</span>
+                    <span className="min-w-0 truncate font-mono text-[13px] text-zinc-900">{d.domain}</span>
                     <DomainPublicToggle domain={d} />
                   </li>
                 ))}
