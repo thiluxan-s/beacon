@@ -99,7 +99,27 @@ That's the entire seam: drop `apps/server/src/integrations/railway.ts`, implemen
 
 ## Deploy pipeline
 
-A push to `main` triggers GitHub Actions: typecheck, lint, and tests run first, then the `web` and `server` images build and push to ghcr. Deployment happens over SSH via [`infrastructure/deploy/deploy.sh`](infrastructure/deploy/deploy.sh), which pulls the new images, runs any pending database migrations, brings the stack up with `docker compose up`, and health-checks both `web` and `server` before considering the deploy complete — rolling back automatically if either fails. See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the rollback mechanics and CI workflow definitions.
+A push to `main` triggers GitHub Actions: typecheck, lint, and tests run first, then the `web` and `server` images build and push to ghcr. Deployment happens over SSH via [`infrastructure/deploy/deploy.sh`](infrastructure/deploy/deploy.sh), which syncs infra config to the box, pulls the new images, runs any pending database migrations, brings the stack up with `docker compose up`, recreates the proxy to pick up config changes, and health-checks both `web` and `server` before considering the deploy complete — rolling back automatically if either fails. See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for the rollback mechanics and CI workflow definitions.
+
+## Security posture
+
+Beacon is single-user, but "only I log in" isn't a security model — a public dashboard on a box I own is still exposed to the whole internet. So it's hardened in depth, and — the part I care about more — **verified against the running system, not assumed from config**:
+
+- **Host & network.** `ufw` allows only 22/80/443 inbound (default-deny on incoming *and* routed traffic); SSH is key-only, with root login and password authentication disabled. DNS points straight at the Droplet with no proxy in front, so what reaches Caddy is exactly what the client sent.
+- **Transport.** Caddy terminates TLS with auto-renewed Let's Encrypt certificates; HSTS is sent with `preload`.
+- **HTTP headers.** The web host sends an **enforcing, nonce-based Content-Security-Policy** (`strict-dynamic`, no `unsafe-inline` for scripts), plus `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy`; the API host sends HSTS + `nosniff`.
+- **Auth & internal surface.** Clerk gates every app route, and the Clerk webhook verifies its svix HMAC signature before processing anything. The internal `web → server` API requires a shared secret compared in constant time; Caddy returns `404` for `/internal/*` on the public host; and the server port is published only on the Docker network, never the host. CORS is locked to a single origin.
+- **Secrets & data.** Integration credentials (Vercel/GitHub tokens) are encrypted at rest with **AES-256-GCM**, never returned to the client, and never logged. No secrets live in git — `.env` files are untracked; only `.env.example` placeholders are committed. Every query runs through Drizzle's parameterized builder, so there's no string-concatenated SQL surface.
+- **Public demo lane.** The anonymous `/demo` WebSocket is receive-only and topic-scoped (it refuses global and private-service topics), capped in concurrent connections, serves only opted-in entities as minimal DTOs, and is disabled entirely unless explicitly switched on.
+
+### Phase 6: the security review
+
+Rather than trust that all of the above was wired correctly, Phase 6 was a whole-app audit against a written checklist — code, infrastructure config, and git history — documented finding-by-finding in [`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md). No critical or high findings; everything else was fixed or explicitly accepted, and **each fix was verified in production, not just merged.** Two are worth calling out, because shipping carefully is what caught real bugs:
+
+- **The CSP shipped `Report-Only` first.** A strict CSP can silently break a Next.js + Clerk app, so it went out in report-only mode and was validated against the live app before enforcing — and that caught a genuine defect: under `strict-dynamic`, Clerk's own script was loading *without* the per-request nonce and would have been **blocked** the moment the policy enforced, breaking sign-in for real users. The fix (`<ClerkProvider dynamic>`, which routes Clerk through its nonce-aware script path) was confirmed against production — the response's nonce matching the script tag's — and only then flipped to enforcing.
+- **A one-line header fix that exposed a deploy-pipeline gap.** Adding `nosniff` to the API host quietly did nothing: the pipeline only ever pulled application *images* and never synced infra config (the Caddyfile) to the VPS — and because the Caddyfile is a single-file Docker bind mount, an atomic file replace left the running container pinned to the old inode, so even a `caddy reload` was a no-op. Fixed by having CI sync config to the box and the deploy **recreate** the proxy container. Config-as-code now actually ships.
+
+The two operational items — confirming the firewall/SSH state on the box, and rotating two API tokens that had leaked into local dev logs during earlier smoke tests (never into git) — were both closed out and verified on the VPS.
 
 ## Screenshots
 
