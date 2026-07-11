@@ -176,10 +176,13 @@ git commit -m "feat(web): CSP directive builder for report-only header"
 
 **Files:**
 - Modify: `apps/web/middleware.ts`
+- Modify: `apps/web/app/layout.tsx` — add the `dynamic` prop to `<ClerkProvider>` (required so Clerk stamps the CSP nonce on its own script; discovered during implementation — see the spec's "Clerk nonce plumbing" section).
 
 **Interfaces:**
 - Consumes: `buildCspDirectives(apiUrl, wsUrl)` from Task 1.
 - Produces: middleware that emits `Content-Security-Policy-Report-Only` on document responses. No new exported symbols.
+
+> **Implementation note (added after root-cause debugging):** `strict: true` alone breaks Clerk — its externally-loaded `clerk.browser.js` is injected without a nonce and `strict-dynamic` blocks it (verified: broken in both report-only and enforce). The fix is `<ClerkProvider dynamic>` in the root layout, which routes Clerk through `DynamicClerkScripts` so it reads the `x-nonce` request header and nonces its script. Confirmed: header nonce == Clerk script-tag nonce once `dynamic` is set. This flips `/` and `/_not-found` to dynamic rendering (expected).
 
 - [ ] **Step 1: Add the CSP option to the middleware**
 

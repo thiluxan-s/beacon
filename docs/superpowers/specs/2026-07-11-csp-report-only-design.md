@@ -33,13 +33,21 @@ Passed to `clerkMiddleware`:
   - `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'` (CSP-native mirror of the existing `X-Frame-Options: DENY`).
   - `form-action 'self'` — Clerk augments for OAuth redirects.
 
+### Clerk nonce plumbing — the `dynamic` prop (discovered during implementation)
+
+`strict: true` only protects scripts if Clerk's own externally-loaded `clerk.browser.js` carries the per-request nonce. Clerk applies that nonce **only** when `<ClerkProvider>` is rendered with the `dynamic` prop — that routes it through the server-side `DynamicClerkScripts` component, which reads the `x-nonce` request header Clerk's middleware sets and stamps it on the script tag. Without `dynamic`, `<ClerkProvider>` injects `clerk.browser.js` client-side with **no** nonce, and `strict-dynamic` (which ignores host allowlists) blocks it — breaking auth under enforcement. Verified during implementation: header nonce and Clerk's script-tag nonce match only once `dynamic` is set.
+
+Therefore the root layout must use `<ClerkProvider dynamic>` (`apps/web/app/layout.tsx`), carrying an explanatory comment so it is not removed. This forces the root layout to render dynamically, flipping the previously-static `/` and `/_not-found` routes to server-rendered-on-demand. That is acceptable and expected for a live, Clerk-gated dashboard.
+
+The rejected alternative, `strict: false`, makes Clerk emit `script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:` — scripts allowed from any origin, which negates the point of the header. `strict: true` + `dynamic` is the only configuration that yields a genuinely restrictive `script-src`.
+
 ### The one extracted unit
 
 A small pure helper (e.g. `buildCspDirectives(apiUrl, wsUrl)`) that returns the `directives` object with the API and WS origins folded into `connect-src`. Extracted so it is unit-testable in isolation. The middleware wires it into `clerkMiddleware`. What it does: turns two URLs into a CSP directives map. How you use it: call with the two public env URLs. What it depends on: nothing but the URL strings (parses origins via `URL`).
 
 ## Data flow / rendering
 
-Reading the nonce forces dynamic rendering on affected routes. This app is already fully dynamic (live Clerk-gated dashboard, nothing statically cached), so there is no regression. Implementation must confirm `npm run build` shows no route unexpectedly flipping static→dynamic and no build error.
+`<ClerkProvider dynamic>` (required for the nonce — see above) reads request headers, so the root layout renders dynamically and the previously-static `/` and `/_not-found` routes flip to server-rendered-on-demand. Every other route was already dynamic. For a live, Clerk-gated dashboard this is the correct and expected trade-off, not a regression. Implementation confirmed `npm run build` succeeds with the full route table dynamic.
 
 ## Environment
 
