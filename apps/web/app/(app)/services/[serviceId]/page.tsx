@@ -55,7 +55,7 @@ export default async function ServiceDetailPage({
       </div>
 
       {/* ─── Header block ─── */}
-      <div className="flex items-start justify-between gap-6 border-b border-zinc-200/60 px-5 py-3.5">
+      <div className="flex flex-col gap-3 border-b border-zinc-200/60 px-5 py-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0">
           <h1 className="truncate text-sm font-semibold text-zinc-900">{service.name}</h1>
           <p className="mt-0.5 truncate font-mono text-[11px] text-zinc-400">{endpoint}</p>
@@ -65,7 +65,7 @@ export default async function ServiceDetailPage({
             </p>
           )}
         </div>
-        <div className="shrink-0 pt-0.5 text-right">
+        <div className="shrink-0 pt-0.5 text-left sm:text-right">
           <ServiceStatusLive serviceId={service.id} initialStatus={service.currentStatus} />
           {activeIncident && (
             <Link href={`/incidents/${activeIncident.id}`} className="mt-1 inline-block font-mono text-[10px] uppercase tracking-[0.1em] text-status-down hover:underline">
@@ -185,13 +185,13 @@ export default async function ServiceDetailPage({
               <span className="w-24 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
                 Result
               </span>
-              <span className="w-12 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+              <span className="hidden w-12 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
                 Code
               </span>
-              <span className="w-16 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+              <span className="hidden w-16 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
                 Time
               </span>
-              <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+              <span className="min-w-0 flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
                 Detail
               </span>
               <span className="w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
@@ -219,17 +219,17 @@ export default async function ServiceDetailPage({
                     </div>
 
                     {/* Status code */}
-                    <span className="w-12 text-right font-mono text-[11px] tabular-nums text-zinc-500">
+                    <span className="hidden w-12 text-right font-mono text-[11px] tabular-nums text-zinc-500 sm:block">
                       {c.statusCode ?? '—'}
                     </span>
 
                     {/* Response time */}
-                    <span className="w-16 text-right font-mono text-[11px] tabular-nums text-zinc-500">
+                    <span className="hidden w-16 text-right font-mono text-[11px] tabular-nums text-zinc-500 sm:block">
                       {c.responseTimeMs != null ? `${c.responseTimeMs}ms` : '—'}
                     </span>
 
                     {/* Error message / detail */}
-                    <span className="flex-1 truncate text-[11px] text-zinc-400">
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-400">
                       {c.errorMessage ?? ''}
                     </span>
 
