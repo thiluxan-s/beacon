@@ -13,6 +13,7 @@ export function DomainRowActions({ id }: { id: string }) {
         size="sm"
         variant="ghost"
         disabled={pending}
+        className="min-h-11 sm:min-h-7"
         onClick={() =>
           start(async () => {
             await recheckDomainAction(id);
@@ -26,7 +27,7 @@ export function DomainRowActions({ id }: { id: string }) {
         variant="ghost"
         disabled={pending}
         // Use --color-status-down token for destructive tint (aligns with design system)
-        className="text-status-down/80 hover:bg-red-50 hover:text-status-down"
+        className="min-h-11 text-status-down/80 hover:bg-red-50 hover:text-status-down sm:min-h-7"
         onClick={() =>
           start(async () => {
             await deleteDomainAction(id);

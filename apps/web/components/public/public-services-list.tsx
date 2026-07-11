@@ -1,20 +1,32 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { WsEvent } from '@beacon/shared';
 
 import type { PublicServiceDto } from '@/lib/public-api';
+import { StatusAnnouncer } from '@/components/a11y/status-announcer';
 import { STATUS_STYLE } from '@/lib/status-style';
 import { relativeTime } from '@/lib/relative-time';
 import { useServiceStatusSubscriptions } from '@/lib/use-ws';
 
 export function PublicServicesList({ initial }: { initial: PublicServiceDto[] }) {
   const [services, setServices] = useState(initial);
+  const [announcement, setAnnouncement] = useState('');
+
+  // Latest `services` for the onEvent handler below without making the handler's
+  // identity depend on it — a stable handler identity keeps the WS subscription
+  // from unsubscribing/resubscribing on every status update (mirrors ServicesLiveList).
+  const servicesRef = useRef(services);
+  useEffect(() => {
+    servicesRef.current = services;
+  }, [services]);
 
   const onEvent = useCallback((e: WsEvent) => {
     if (e.type !== 'service.status_changed') return;
+    const name = servicesRef.current.find((s) => s.id === e.serviceId)?.name;
     setServices((prev) => prev.map((s) => (s.id === e.serviceId ? { ...s, currentStatus: e.status } : s)));
+    setAnnouncement(name ? `${name} is now ${e.status}` : '');
   }, []);
 
   // One hook call subscribing to every public service's topic (fixed for the
@@ -24,39 +36,43 @@ export function PublicServicesList({ initial }: { initial: PublicServiceDto[] })
     onEvent,
   );
 
-  if (services.length === 0) {
-    return <p className="px-5 pb-4 text-[12px] text-zinc-400">No public services.</p>;
-  }
-
   return (
-    <ul className="divide-y divide-zinc-200/40">
-      {services.map((s) => {
-        const style = STATUS_STYLE[s.currentStatus] ?? { text: 'text-zinc-500', dot: 'bg-zinc-300', pulse: false };
-        return (
-          <li key={s.id} className="flex items-center gap-4 px-5 py-3">
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-900">{s.name}</span>
-            <div className="flex w-24 items-center gap-1.5">
-              <span
-                className={[
-                  'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-                  style.dot,
-                  style.pulse ? 'animate-pulse' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-hidden="true"
-              />
-              <span className={`text-[12px] font-medium capitalize ${style.text}`}>{s.currentStatus}</span>
-            </div>
-            <span
-              className="w-24 text-right font-mono text-[11px] tabular-nums text-zinc-400"
-              suppressHydrationWarning
-            >
-              {relativeTime(s.lastCheckAt)}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <StatusAnnouncer message={announcement} />
+
+      {services.length === 0 ? (
+        <p className="px-5 pb-4 text-[12px] text-zinc-400">No public services.</p>
+      ) : (
+        <ul className="divide-y divide-zinc-200/40">
+          {services.map((s) => {
+            const style = STATUS_STYLE[s.currentStatus] ?? { text: 'text-zinc-500', dot: 'bg-zinc-300', pulse: false };
+            return (
+              <li key={s.id} className="flex items-center gap-4 px-5 py-3">
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-900">{s.name}</span>
+                <div className="flex w-24 items-center gap-1.5">
+                  <span
+                    className={[
+                      'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+                      style.dot,
+                      style.pulse ? 'animate-pulse' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-hidden="true"
+                  />
+                  <span className={`text-[12px] font-medium capitalize ${style.text}`}>{s.currentStatus}</span>
+                </div>
+                <span
+                  className="hidden w-24 text-right font-mono text-[11px] tabular-nums text-zinc-400 sm:block"
+                  suppressHydrationWarning
+                >
+                  {relativeTime(s.lastCheckAt)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
   );
 }

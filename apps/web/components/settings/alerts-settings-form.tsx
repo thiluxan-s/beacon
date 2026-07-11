@@ -23,7 +23,7 @@ export function AlertsSettingsForm({ initial }: { initial: NotificationSettingsD
 
   return (
     <div className="flex flex-col gap-4 px-5 pb-4">
-      <label className="flex items-center gap-2.5">
+      <label className="flex min-h-11 items-center gap-2.5 sm:min-h-0">
         <input
           type="checkbox"
           checked={enabled}

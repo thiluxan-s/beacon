@@ -47,14 +47,14 @@ export default async function IncidentDetailPage({
       </div>
 
       {/* ─── Header block ─── */}
-      <div className="flex items-start justify-between gap-6 border-b border-zinc-200/60 px-5 py-3.5">
+      <div className="flex flex-col gap-3 border-b border-zinc-200/60 px-5 py-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0">
           <h1 className="truncate text-sm font-semibold text-zinc-900">{incident.serviceName}</h1>
           <p className="mt-0.5 font-mono text-[11px] text-zinc-400" suppressHydrationWarning>
             Started {relativeTime(incident.startedAt)}
           </p>
         </div>
-        <div className="shrink-0 pt-0.5">
+        <div className="shrink-0 pt-0.5 text-left sm:text-right">
           <IncidentLiveHeader
             incidentId={incident.id}
             serviceId={incident.serviceId}

@@ -16,6 +16,7 @@ export function ServiceRowActions({ service }: { service: ServiceDto }) {
         size="sm"
         variant="ghost"
         disabled={pending}
+        className="min-h-11 sm:min-h-7"
         onClick={() =>
           start(async () => {
             await pauseServiceAction(service.id, !service.paused);
@@ -29,7 +30,7 @@ export function ServiceRowActions({ service }: { service: ServiceDto }) {
         variant="ghost"
         disabled={pending}
         // Use --color-status-down token for destructive tint (aligns with design system)
-        className="text-status-down/80 hover:bg-red-50 hover:text-status-down"
+        className="min-h-11 text-status-down/80 hover:bg-red-50 hover:text-status-down sm:min-h-7"
         onClick={() =>
           start(async () => {
             await deleteServiceAction(service.id);

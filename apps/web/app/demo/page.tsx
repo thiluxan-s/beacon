@@ -69,7 +69,7 @@ export default async function DemoPage() {
               <div className="flex items-center gap-4 border-b border-zinc-200/40 px-5 py-2">
                 <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Service</span>
                 <span className="w-24 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Status</span>
-                <span className="w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Last check</span>
+                <span className="hidden w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">Last check</span>
               </div>
             )}
             <PublicServicesList initial={services} />
@@ -82,8 +82,8 @@ export default async function DemoPage() {
               <div className="flex items-center gap-4 border-b border-zinc-200/40 px-5 py-2">
                 <span className="w-24 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Status</span>
                 <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Service</span>
-                <span className="w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Duration</span>
-                <span className="w-28 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Started</span>
+                <span className="hidden w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">Duration</span>
+                <span className="hidden w-28 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">Started</span>
               </div>
             )}
             <PublicIncidentsList initial={incidents ?? []} />
@@ -96,8 +96,8 @@ export default async function DemoPage() {
               <div className="flex items-center gap-4 border-b border-zinc-200/40 px-5 py-2">
                 <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Domain</span>
                 <span className="w-28 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Status</span>
-                <span className="w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">SSL</span>
-                <span className="w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">Registration</span>
+                <span className="hidden w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">SSL</span>
+                <span className="hidden w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">Registration</span>
               </div>
             )}
             <PublicDomainsList initial={domains ?? []} />

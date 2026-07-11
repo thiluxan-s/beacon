@@ -28,10 +28,10 @@ export function PublicDomainsList({ initial }: { initial: PublicDomainDto[] }) {
                 {d.currentStatus.replace('_', ' ')}
               </span>
             </div>
-            <span className="w-20 text-right font-mono text-[11px] tabular-nums text-zinc-400">
+            <span className="hidden w-20 text-right font-mono text-[11px] tabular-nums text-zinc-400 sm:block">
               {formatDaysUntil(d.sslExpiresAt)}
             </span>
-            <span className="w-20 text-right font-mono text-[11px] tabular-nums text-zinc-400">
+            <span className="hidden w-20 text-right font-mono text-[11px] tabular-nums text-zinc-400 sm:block">
               {formatDaysUntil(d.domainExpiresAt)}
             </span>
           </li>

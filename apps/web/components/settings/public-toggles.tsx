@@ -17,7 +17,7 @@ function PublicToggle({
   const [pending, start] = useTransition();
 
   return (
-    <label className="flex items-center gap-2">
+    <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
       <input
         type="checkbox"
         checked={isPublic}

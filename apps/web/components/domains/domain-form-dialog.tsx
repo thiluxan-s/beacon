@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createDomainAction } from '@/app/(app)/domains/actions';
+import { useFocusTrap } from '@/lib/use-focus-trap';
 
 export function DomainFormDialog() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const trapRef = useFocusTrap(open);
 
   function handleClose() {
     if (pending) return;
@@ -42,7 +44,7 @@ export function DomainFormDialog() {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" className="min-h-11 sm:min-h-7" onClick={() => setOpen(true)}>
         Add domain
       </Button>
 
@@ -62,6 +64,7 @@ export function DomainFormDialog() {
 
           {/* Dialog panel */}
           <form
+            ref={trapRef as RefObject<HTMLFormElement | null>}
             action={onSubmit}
             className="relative z-10 w-full max-w-sm rounded-xl border border-zinc-200/80 bg-white shadow-2xl shadow-zinc-950/12"
           >
@@ -86,7 +89,6 @@ export function DomainFormDialog() {
                   id="dfd-domain"
                   name="domain"
                   required
-                  autoFocus
                   placeholder="thiluxan.com"
                   className="h-8 font-mono text-[12px]"
                 />
