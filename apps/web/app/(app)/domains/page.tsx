@@ -119,10 +119,10 @@ export default async function DomainsPage() {
             <span className="w-32 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
               Status
             </span>
-            <span className="w-16 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+            <span className="hidden w-16 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
               SSL
             </span>
-            <span className="w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+            <span className="hidden w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
               Registration
             </span>
             <span className="w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
@@ -164,18 +164,18 @@ export default async function DomainsPage() {
                     </span>
                   </div>
 
-                  <span className="w-16 text-right font-mono text-[11px] tabular-nums text-zinc-500">
+                  <span className="hidden w-16 text-right font-mono text-[11px] tabular-nums text-zinc-500 sm:block">
                     {formatDaysUntil(d.sslExpiresAt)}
                   </span>
-                  <span className="w-20 text-right font-mono text-[11px] tabular-nums text-zinc-500">
+                  <span className="hidden w-20 text-right font-mono text-[11px] tabular-nums text-zinc-500 sm:block">
                     {formatDaysUntil(d.domainExpiresAt)}
                   </span>
                   <span className="w-24 text-right font-mono text-[11px] tabular-nums text-zinc-400">
                     {relativeTime(d.lastCheckAt)}
                   </span>
 
-                  {/* Row actions — revealed on hover (Linear/Vercel pattern) */}
-                  <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                  {/* Row actions — always visible on touch; hover-reveal on desktop (Linear/Vercel pattern) */}
+                  <div className="opacity-100 sm:opacity-0 sm:transition-opacity sm:duration-150 sm:group-hover:opacity-100 focus-within:opacity-100">
                     <DomainRowActions id={d.id} />
                   </div>
                 </li>

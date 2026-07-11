@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import type { WsEvent } from '@beacon/shared';
 
 import type { IncidentDto } from '@/lib/incidents-api';
+import { StatusAnnouncer } from '@/components/a11y/status-announcer';
 import { relativeTime } from '@/lib/relative-time';
 import { SEVERITY_STYLE, formatDuration } from '@/lib/incident-style';
 import { useServiceStatusSubscription } from '@/lib/use-ws';
@@ -33,8 +34,19 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
     setIncidents(initial);
   }
 
+  const [announcement, setAnnouncement] = useState('');
+
+  // Latest `incidents` for the onEvent handler below without making the handler's
+  // identity depend on it — a stable handler identity keeps the WS subscription
+  // from unsubscribing/resubscribing on every incident update (mirrors ServicesLiveList).
+  const incidentsRef = useRef(incidents);
+  useEffect(() => {
+    incidentsRef.current = incidents;
+  }, [incidents]);
+
   const onEvent = useCallback((e: WsEvent) => {
     if (e.type === 'incident.opened') {
+      const serviceName = incidentsRef.current.find((i) => i.serviceId === e.serviceId)?.serviceName;
       setIncidents((prev) =>
         prev.some((i) => i.id === e.incidentId)
           ? prev
@@ -53,7 +65,9 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
               ...prev,
             ],
       );
+      setAnnouncement(serviceName ? `Incident opened for ${serviceName}` : '');
     } else if (e.type === 'incident.resolved') {
+      const serviceName = incidentsRef.current.find((i) => i.id === e.incidentId)?.serviceName;
       setIncidents((prev) =>
         prev.map((i) =>
           i.id === e.incidentId
@@ -61,6 +75,7 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
             : i,
         ),
       );
+      setAnnouncement(serviceName ? `Incident resolved for ${serviceName}` : '');
     }
   }, []);
 
@@ -88,6 +103,8 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
 
   return (
     <>
+      <StatusAnnouncer message={announcement} />
+
       {/* ─── Summary strip ─── */}
       <div
         className={[
@@ -134,10 +151,10 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
         <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
           Service
         </span>
-        <span className="w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+        <span className="hidden w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
           Duration
         </span>
-        <span className="w-28 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+        <span className="hidden w-28 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
           Started
         </span>
       </div>
@@ -184,13 +201,13 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
               </div>
 
               {/* Duration */}
-              <span className="w-24 text-right font-mono text-[11px] tabular-nums text-zinc-500">
+              <span className="hidden w-24 text-right font-mono text-[11px] tabular-nums text-zinc-500 sm:block">
                 {formatDuration(i.durationSeconds)}
               </span>
 
               {/* Started — relative */}
               <span
-                className="w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400"
+                className="hidden w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400 sm:block"
                 suppressHydrationWarning
               >
                 {relativeTime(i.startedAt)}
