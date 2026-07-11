@@ -5,16 +5,23 @@ import { authenticateConnection } from './auth';
 import { isServicePublic } from '../db/repositories/services';
 import type { ConnectionHub } from './connections';
 
+// Ceiling on concurrent anonymous (public) WS connections. The public lane is
+// unauthenticated, so without a cap it could be opened without bound and exhaust
+// the small VPS. Authenticated (owner) connections are not capped.
+const DEFAULT_MAX_PUBLIC_CONNECTIONS = 100;
+
 type Deps = {
   authenticate?: (token: string | undefined, opts: { public: boolean }) => Promise<{ userId: string; public: boolean } | null>;
   canAccessService?: (userId: string, serviceId: string) => Promise<boolean>;
   isServicePublic?: (serviceId: string) => Promise<boolean>;
   heartbeatMs?: number;
+  maxPublicConnections?: number;
 };
 
 export function attachWebSocketServer(httpServer: Server, hub: ConnectionHub, deps: Deps = {}): void {
   const authenticate = deps.authenticate ?? ((t, o) => authenticateConnection(t, o));
   const heartbeatMs = deps.heartbeatMs ?? 30_000;
+  const maxPublicConnections = deps.maxPublicConnections ?? DEFAULT_MAX_PUBLIC_CONNECTIONS;
   const wss = new WebSocketServer({ noServer: true });
 
   // Store auth results between upgrade and connection events
@@ -32,6 +39,11 @@ export function attachWebSocketServer(httpServer: Server, hub: ConnectionHub, de
     void authenticate(token, { public: isPublic }).then((auth) => {
       if (!auth) {
         socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      if (auth.public && hub.publicConnectionCount() >= maxPublicConnections) {
+        socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
         socket.destroy();
         return;
       }

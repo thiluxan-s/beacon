@@ -31,6 +31,34 @@ describe('attachWebSocketServer (integration)', () => {
     httpServer.close();
   });
 
+  it('caps concurrent anonymous (public) connections', async () => {
+    const hub = new ConnectionHub();
+    const httpServer = createServer();
+    attachWebSocketServer(httpServer, hub, {
+      authenticate: async (_t, o) => (o.public ? { userId: 'owner', public: true } : { userId: 'u1', public: false }),
+      isServicePublic: async () => true,
+      maxPublicConnections: 1,
+      heartbeatMs: 10_000,
+    });
+    const port = await listen(httpServer);
+
+    // first anonymous connection is accepted
+    const ws1 = new WebSocket(`ws://localhost:${port}/ws?public=1`);
+    await new Promise((r) => ws1.on('open', r));
+
+    // second anonymous connection is rejected (closes before opening)
+    const ws2 = new WebSocket(`ws://localhost:${port}/ws?public=1`);
+    const rejected = await new Promise<boolean>((resolve) => {
+      ws2.on('error', () => {});
+      ws2.on('close', () => resolve(true));
+      ws2.on('open', () => resolve(false));
+    });
+    expect(rejected).toBe(true);
+
+    ws1.close();
+    httpServer.close();
+  });
+
   it('rejects a bad token', async () => {
     const hub = new ConnectionHub();
     const httpServer = createServer();

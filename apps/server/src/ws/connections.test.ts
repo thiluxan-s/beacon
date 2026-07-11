@@ -63,4 +63,14 @@ describe('ConnectionHub', () => {
     expect(await hub.subscribe(id, 'service:x', { canAccessService: async () => true })).toBe(true);
     expect(await hub.subscribe(id, 'service:y', { canAccessService: async () => false })).toBe(false);
   });
+
+  it('publicConnectionCount counts only public connections and tracks removals', () => {
+    const hub = new ConnectionHub();
+    const p1 = hub.add(fakeWs(), 'owner-uuid', true);
+    hub.add(fakeWs(), 'owner-uuid', true);
+    hub.add(fakeWs(), 'u1'); // authed (non-public) — not counted
+    expect(hub.publicConnectionCount()).toBe(2);
+    hub.remove(p1);
+    expect(hub.publicConnectionCount()).toBe(1);
+  });
 });
