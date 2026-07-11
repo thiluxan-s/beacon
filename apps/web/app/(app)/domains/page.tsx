@@ -125,7 +125,7 @@ export default async function DomainsPage() {
             <span className="hidden w-20 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
               Registration
             </span>
-            <span className="w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+            <span className="hidden w-24 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
               Checked
             </span>
             {/* Spacer for row actions column — keeps header aligned */}
@@ -170,7 +170,7 @@ export default async function DomainsPage() {
                   <span className="hidden w-20 text-right font-mono text-[11px] tabular-nums text-zinc-500 sm:block">
                     {formatDaysUntil(d.domainExpiresAt)}
                   </span>
-                  <span className="w-24 text-right font-mono text-[11px] tabular-nums text-zinc-400">
+                  <span className="hidden w-24 text-right font-mono text-[11px] tabular-nums text-zinc-400 sm:block">
                     {relativeTime(d.lastCheckAt)}
                   </span>
 

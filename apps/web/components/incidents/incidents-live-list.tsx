@@ -65,7 +65,7 @@ export function IncidentsLiveList({ initial }: { initial: IncidentDto[] }) {
               ...prev,
             ],
       );
-      setAnnouncement(serviceName ? `Incident opened for ${serviceName}` : '');
+      setAnnouncement(serviceName ? `Incident opened for ${serviceName}` : 'An incident opened');
     } else if (e.type === 'incident.resolved') {
       const serviceName = incidentsRef.current.find((i) => i.id === e.incidentId)?.serviceName;
       setIncidents((prev) =>
