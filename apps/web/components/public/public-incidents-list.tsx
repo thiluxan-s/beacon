@@ -54,11 +54,11 @@ export function PublicIncidentsList({ initial }: { initial: PublicIncidentDto[] 
               </span>
             </div>
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-900">{i.serviceName}</span>
-            <span className="w-24 text-right font-mono text-[11px] tabular-nums text-zinc-500">
+            <span className="hidden w-24 text-right font-mono text-[11px] tabular-nums text-zinc-500 sm:block">
               {formatDuration(i.durationSeconds)}
             </span>
             <span
-              className="w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400"
+              className="hidden w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400 sm:block"
               suppressHydrationWarning
             >
               {relativeTime(i.startedAt)}
