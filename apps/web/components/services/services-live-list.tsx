@@ -115,7 +115,7 @@ export function ServicesLiveList({ initial }: { initial: ServiceDto[] }) {
           Last check
         </span>
         {/* Spacer for row actions column — keeps header aligned */}
-        <div className="hidden w-[152px] sm:block" />
+        <div className="w-[152px]" />
       </div>
 
       {/* ─── Service rows ─── */}
