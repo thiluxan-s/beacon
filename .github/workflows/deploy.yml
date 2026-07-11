@@ -84,6 +84,23 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_SERVER }}:${{ github.sha }}
 
+      # Sync infra config to the VPS so config-as-code actually ships. The VPS
+      # only ever pulled new *images*; Caddyfile / compose / deploy.sh edits used
+      # to require a manual copy, so changes (e.g. a new security header) silently
+      # never took effect. strip_components:1 drops the leading `infrastructure/`
+      # so files land at /opt/beacon/{Caddyfile,docker-compose.yml,deploy/deploy.sh}.
+      # Never syncs `.env` — that holds secrets and lives only on the VPS.
+      - name: Sync infra config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: thiluxan
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.SSH_HOST_FINGERPRINT }}
+          source: "infrastructure/Caddyfile,infrastructure/docker-compose.yml,infrastructure/deploy/deploy.sh"
+          target: "/opt/beacon"
+          strip_components: 1
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:

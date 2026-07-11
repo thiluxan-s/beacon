@@ -38,6 +38,25 @@ fi
 echo "[deploy] bringing stack up"
 docker compose up -d
 
+# Apply Caddyfile changes. The Caddyfile is bind-mounted read-only, so a synced
+# edit does NOT recreate the caddy container — a running Caddy keeps its old
+# in-memory config until reloaded (the `up -d` above won't do it). CI syncs the
+# current Caddyfile to /opt/beacon before this script runs; here we reload it so
+# proxy/header changes actually take effect. Validate first so a broken config
+# can't take the proxy down: on validate failure we skip the reload and Caddy
+# keeps serving its previous config. Best-effort — a reload hiccup must never
+# fail an otherwise-healthy app deploy.
+echo "[deploy] reloading caddy config"
+if docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile; then
+  if docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile; then
+    echo "[deploy] caddy reloaded"
+  else
+    echo "[deploy] WARN: caddy reload failed — proxy left on previous config" >&2
+  fi
+else
+  echo "[deploy] WARN: Caddyfile validate failed — skipping reload, proxy left on previous config" >&2
+fi
+
 verify() {
   local url="$1"
   for _ in $(seq 1 15); do
