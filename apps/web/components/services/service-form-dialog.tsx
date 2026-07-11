@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createServiceAction, updateServiceAction } from '@/app/(app)/services/actions';
+import { useFocusTrap } from '@/lib/use-focus-trap';
 
 type Initial = { id?: string; name?: string; baseUrl?: string; healthCheckPath?: string };
 
@@ -20,6 +21,7 @@ export function ServiceFormDialog({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const trapRef = useFocusTrap(open);
 
   function handleClose() {
     if (pending) return;
@@ -59,7 +61,12 @@ export function ServiceFormDialog({
 
   return (
     <>
-      <Button size="sm" variant={triggerVariant} onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        variant={triggerVariant}
+        className="min-h-11 sm:min-h-7"
+        onClick={() => setOpen(true)}
+      >
         {triggerLabel}
       </Button>
 
@@ -79,6 +86,7 @@ export function ServiceFormDialog({
 
           {/* Dialog panel */}
           <form
+            ref={trapRef as RefObject<HTMLFormElement | null>}
             action={onSubmit}
             className="relative z-10 w-full max-w-sm rounded-xl border border-zinc-200/80 bg-white shadow-2xl shadow-zinc-950/12"
           >

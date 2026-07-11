@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { attachIntegrationAction } from '@/app/(app)/services/actions';
 import type { AvailableIntegration } from '@/lib/services-api';
+import { useFocusTrap } from '@/lib/use-focus-trap';
 
 export function IntegrationAttachDialog({
   serviceId,
@@ -19,6 +20,7 @@ export function IntegrationAttachDialog({
   const [pending, start] = useTransition();
 
   const active = activeId ? (available.find((i) => i.id === activeId) ?? null) : null;
+  const trapRef = useFocusTrap(Boolean(active));
 
   function close() {
     if (pending) return;
@@ -58,7 +60,12 @@ export function IntegrationAttachDialog({
   return (
     <>
       <div className="relative">
-        <Button size="sm" variant="ghost" onClick={() => setMenuOpen((o) => !o)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="min-h-11 sm:min-h-7"
+          onClick={() => setMenuOpen((o) => !o)}
+        >
           Attach ▾
         </Button>
         {menuOpen && (
@@ -93,6 +100,7 @@ export function IntegrationAttachDialog({
         >
           <div className="absolute inset-0 bg-zinc-950/40 backdrop-blur-[2px]" onClick={close} aria-hidden="true" />
           <form
+            ref={trapRef as RefObject<HTMLFormElement | null>}
             action={onSubmit}
             className="relative z-10 w-full max-w-sm rounded-xl border border-zinc-200/80 bg-white shadow-2xl shadow-zinc-950/12"
           >
