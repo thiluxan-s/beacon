@@ -11,8 +11,8 @@ Phase 6 final security review — a whole-app audit against the Phase 6 checklis
 | # | Finding | Severity | Status |
 |---|---------|----------|--------|
 | 1 | No connection cap on the anonymous WebSocket | Medium | Fixed (this PR) |
-| 2 | No Content-Security-Policy header | Low | Fixed — Report-Only shipped (PR #21), then enforced |
-| 3 | API host missing `X-Content-Type-Options: nosniff` | Low | Fixed (this PR) — requires Caddy reload on the VPS |
+| 2 | No Content-Security-Policy header | Low | Fixed — Report-Only (PR #21) then enforced (PR #22); live in prod |
+| 3 | API host missing `X-Content-Type-Options: nosniff` | Low | Fixed — live in prod, verified (PRs #23, #24) |
 | 4 | Internal-secret compare not constant-time | Low | Fixed (this PR) |
 | 5 | WS auth token passed as `?token=` query param | Low | Accepted (browser WS can't set headers) |
 | 6 | Firewall/SSH runtime state unverified | Ops | Action required (verify on VPS) |
@@ -50,7 +50,9 @@ The web host sets HSTS (with preload), `X-Content-Type-Options: nosniff`, `X-Fra
 
 `api.beacon.thiluxan.com` sets only HSTS. `nosniff` is good practice even on a JSON API.
 
-**Fix (this PR):** add `X-Content-Type-Options: nosniff` to the API host's header block in the Caddyfile. **Takes effect only after the updated Caddyfile is synced to the VPS and Caddy reloads** (`docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`, or a caddy container restart) — a config-file change is not picked up by an image-only `docker compose up -d`.
+**Fix:** add `X-Content-Type-Options: nosniff` to the API host's header block in the Caddyfile.
+
+**Status (live + verified):** `nosniff` is deployed on `api.beacon.thiluxan.com` — `curl -sI https://api.beacon.thiluxan.com/health` returns `x-content-type-options: nosniff`. Applying it exposed a deploy-pipeline gap: CI only ever pulled app images and never synced the Caddyfile to the VPS, and an initial `caddy reload` was a no-op because the Caddyfile is a **single-file bind mount** whose inode goes stale when scp atomically replaces the file. Closed across **PR #23** (CI now scp's `Caddyfile`/`docker-compose.yml`/`deploy.sh` to `/opt/beacon`, never `.env`) and **PR #24** (`deploy.sh` **recreates** the caddy container — validating the new config in a throwaway container first — instead of reloading). Infra-as-code config changes now ship and apply automatically. See `docs/INFRASTRUCTURE.md` → Caddyfile / deploy pipeline.
 
 ### 4. Internal-secret comparison is not constant-time — Low
 
