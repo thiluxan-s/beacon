@@ -16,12 +16,14 @@ export default clerkMiddleware(
     if (isProtectedRoute(req)) await auth.protect();
   },
   {
-    // Report-Only for now: observe violations against the running app before
-    // enforcing (tracked as a follow-up PR). `strict` adds the per-request
-    // nonce + strict-dynamic to script-src; Clerk merges its own directives.
+    // Enforcing CSP. Shipped Report-Only first (PR #21) and validated against
+    // prod — header nonce matched Clerk's script nonce, zero violations — then
+    // flipped to enforce here. `strict` adds the per-request nonce +
+    // strict-dynamic to script-src; Clerk merges its own directives. Requires
+    // <ClerkProvider dynamic> (see app/layout.tsx) or Clerk's own script is
+    // blocked. Rollback: add `reportOnly: true` back and redeploy.
     contentSecurityPolicy: {
       strict: true,
-      reportOnly: true,
       directives: buildCspDirectives(
         process.env.NEXT_PUBLIC_API_URL ?? '',
         process.env.NEXT_PUBLIC_WS_URL ?? '',
