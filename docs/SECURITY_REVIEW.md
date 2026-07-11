@@ -11,7 +11,7 @@ Phase 6 final security review — a whole-app audit against the Phase 6 checklis
 | # | Finding | Severity | Status |
 |---|---------|----------|--------|
 | 1 | No connection cap on the anonymous WebSocket | Medium | Fixed (this PR) |
-| 2 | No Content-Security-Policy header | Low | Deferred → own PR (needs runtime validation) |
+| 2 | No Content-Security-Policy header | Low | Report-Only shipped (own PR); enforce tracked as follow-up |
 | 3 | API host missing `X-Content-Type-Options: nosniff` | Low | Fixed (this PR) — requires Caddy reload on the VPS |
 | 4 | Internal-secret compare not constant-time | Low | Fixed (this PR) |
 | 5 | WS auth token passed as `?token=` query param | Low | Accepted (browser WS can't set headers) |
@@ -43,6 +43,8 @@ Mitigations already present: a heartbeat reaps dead connections (30s ping, dropp
 The web host sets HSTS (with preload), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: strict-origin-when-cross-origin`, but no CSP — the largest remaining header-hardening item.
 
 **Deferred to its own PR.** A CSP interacts with Next.js inline/hydration scripts and Clerk's scripts and can silently break the app, so it must be validated against the running application — ideally shipped in `Content-Security-Policy-Report-Only` mode first, then enforced. Kept out of this batch so it can't endanger the safe fixes.
+
+**Status:** A nonce-based CSP now ships in `Content-Security-Policy-Report-Only` mode via `clerkMiddleware`'s `contentSecurityPolicy` option (`strict: true`), with `connect-src` derived from the API/WS env URLs (see `docs/superpowers/specs/2026-07-11-csp-report-only-design.md`). Runtime validation surfaced — and fixed — a real defect: under `strict-dynamic`, Clerk's own `clerk.browser.js` was blocked because it lacked the per-request nonce; the fix is `<ClerkProvider dynamic>`, which routes Clerk through its nonce-aware script path (verified: header nonce == script nonce, no violations in the browser). The enforcing flip (`reportOnly: false`) is a tracked follow-up PR to run once the deployed app is observed clean.
 
 ### 3. API host missing `X-Content-Type-Options: nosniff` — Low
 
