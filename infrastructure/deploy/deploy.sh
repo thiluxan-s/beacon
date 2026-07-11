@@ -38,23 +38,25 @@ fi
 echo "[deploy] bringing stack up"
 docker compose up -d
 
-# Apply Caddyfile changes. The Caddyfile is bind-mounted read-only, so a synced
-# edit does NOT recreate the caddy container — a running Caddy keeps its old
-# in-memory config until reloaded (the `up -d` above won't do it). CI syncs the
-# current Caddyfile to /opt/beacon before this script runs; here we reload it so
-# proxy/header changes actually take effect. Validate first so a broken config
-# can't take the proxy down: on validate failure we skip the reload and Caddy
-# keeps serving its previous config. Best-effort — a reload hiccup must never
+# Apply Caddyfile changes. The Caddyfile is a SINGLE-FILE bind mount
+# (./Caddyfile:/etc/caddy/Caddyfile). CI's scp replaces that file atomically
+# (write-temp + rename → a NEW inode), which the running caddy container does
+# NOT see — it still holds the old inode — so `caddy reload` would re-read the
+# stale in-container copy and silently apply nothing. The container must be
+# RECREATED to re-resolve the bind mount to the current file. Validate the new
+# config in a throwaway container first (a fresh container mounts the current
+# inode; the running one does not); on failure we skip the recreate and leave
+# caddy serving its previous config. Best-effort — a caddy hiccup must never
 # fail an otherwise-healthy app deploy.
-echo "[deploy] reloading caddy config"
-if docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile; then
-  if docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile; then
-    echo "[deploy] caddy reloaded"
+echo "[deploy] applying caddy config (recreate to pick up the synced Caddyfile)"
+if docker compose run --rm --no-deps --entrypoint caddy -T caddy validate --config /etc/caddy/Caddyfile; then
+  if docker compose up -d --force-recreate --no-deps caddy; then
+    echo "[deploy] caddy recreated with current config"
   else
-    echo "[deploy] WARN: caddy reload failed — proxy left on previous config" >&2
+    echo "[deploy] WARN: caddy recreate failed — check the proxy" >&2
   fi
 else
-  echo "[deploy] WARN: Caddyfile validate failed — skipping reload, proxy left on previous config" >&2
+  echo "[deploy] WARN: Caddyfile validate failed — skipping recreate, caddy left on previous config" >&2
 fi
 
 verify() {

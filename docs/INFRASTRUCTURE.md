@@ -161,7 +161,7 @@ Auto-SSL via Let's Encrypt with zero config. Caddy renews certificates automatic
 
 ### Caddyfile
 
-Lives at `infrastructure/Caddyfile` in the repo, deployed to `/opt/beacon/Caddyfile` on the VPS, mounted into the Caddy container via Docker Compose (read-only). CI syncs this file to the VPS on every deploy and `deploy.sh` reloads Caddy afterward (`caddy validate` then `caddy reload`), so header/proxy changes take effect automatically — a bind-mounted config edit alone does **not** recreate the container, and a running Caddy keeps its old in-memory config until reloaded. If `validate` fails, the reload is skipped and Caddy stays on its previous config (a bad Caddyfile can't take the proxy down).
+Lives at `infrastructure/Caddyfile` in the repo, deployed to `/opt/beacon/Caddyfile` on the VPS, mounted into the Caddy container via Docker Compose (read-only, a **single-file** bind mount: `./Caddyfile:/etc/caddy/Caddyfile`). CI syncs this file to the VPS on every deploy and `deploy.sh` then **recreates** the caddy container so the change takes effect. Recreate — not `caddy reload` — because a single-file bind mount pins an inode: CI's scp replaces the file atomically (new inode), which a running container never sees (it keeps the old inode), so a reload would re-read the stale in-container copy and silently apply nothing. `deploy.sh` validates the new config in a throwaway container first (a fresh container mounts the current file); if validation fails it skips the recreate and leaves caddy on its previous config, so a bad Caddyfile can't take the proxy down. TLS certs survive the recreate (they live in the `caddy_data` volume, not the container).
 
 ```caddy
 # beacon.<domain> — Next.js web app
@@ -251,7 +251,7 @@ Pushing to `main` triggers GitHub Actions. PR builds run typecheck/lint/test but
 11. Pull new images
 12. Run any pending DB migrations (`npm run db:migrate` inside the server container)
 13. docker compose up -d (rolling update)
-14. Reload Caddy so synced Caddyfile changes take effect (`caddy validate` then `caddy reload`; skipped if validate fails, best-effort)
+14. Recreate the Caddy container so the synced Caddyfile takes effect (validate in a throwaway container first — a single-file bind mount pins an inode, so `reload` alone re-reads a stale copy; skipped if validate fails, best-effort)
 15. Verify: curl beacon.<domain>/health expects 200 within 30s, else exit non-zero
 16. If verify fails: roll back by updating tag back to previous SHA, up -d again, notify
 17. On success: prune old app images — keep only the current + previous SHA of `beacon-web`/`beacon-server` (rollback re-pulls the previous, so it is deliberately retained) plus a dangling-layer sweep
