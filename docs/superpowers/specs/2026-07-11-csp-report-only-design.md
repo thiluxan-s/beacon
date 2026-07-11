@@ -73,8 +73,12 @@ Report-Only cannot break the app by construction — it only reports violations,
 
 Update `docs/SECURITY_REVIEW.md` finding #2 status → "Report-Only shipped (this PR); enforce tracked as follow-up," referencing this design doc.
 
+## Follow-up shipped
+
+The enforcing flip landed after prod validation: Report-Only was merged (PR #21) and validated live (prod header nonce matched Clerk's prod script nonce, zero browser violations), then `reportOnly` was removed so the header now enforces. Rollback is a one-line revert + redeploy.
+
 ## Out of scope
 
-- Flipping to the enforcing `Content-Security-Policy` header (separate follow-up PR).
+- ~~Flipping to the enforcing `Content-Security-Policy` header~~ (done as the follow-up above).
 - Any CSP violation-report collection endpoint.
 - Changes to Caddy or the API host headers.
