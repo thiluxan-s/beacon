@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import type { WsEvent } from '@beacon/shared';
 
 import type { ServiceDto } from '@/lib/services-api';
+import { StatusAnnouncer } from '@/components/a11y/status-announcer';
 import { ServiceRowActions } from '@/components/services/service-row-actions';
 import { relativeTime } from '@/lib/relative-time';
 import { STATUS_STYLE } from '@/lib/status-style';
@@ -39,11 +40,23 @@ export function ServicesLiveList({ initial }: { initial: ServiceDto[] }) {
     setServices(initial);
   }
 
+  const [announcement, setAnnouncement] = useState('');
+
+  // Latest `services` for the onEvent handler below without making the handler's
+  // identity depend on it — a stable handler identity keeps the WS subscription
+  // from unsubscribing/resubscribing on every status update.
+  const servicesRef = useRef(services);
+  useEffect(() => {
+    servicesRef.current = services;
+  }, [services]);
+
   const onEvent = useCallback((e: WsEvent) => {
     if (e.type !== 'service.status_changed') return;
+    const name = servicesRef.current.find((s) => s.id === e.serviceId)?.name;
     setServices((prev) =>
       prev.map((s) => (s.id === e.serviceId ? { ...s, currentStatus: e.status } : s)),
     );
+    setAnnouncement(name ? `${name} is now ${e.status}` : '');
   }, []);
 
   useServiceStatusSubscription('global', onEvent);
@@ -54,6 +67,8 @@ export function ServicesLiveList({ initial }: { initial: ServiceDto[] }) {
 
   return (
     <>
+      <StatusAnnouncer message={announcement} />
+
       {/* ─── Status summary strip ─── */}
       <div
         className={[
@@ -96,11 +111,11 @@ export function ServicesLiveList({ initial }: { initial: ServiceDto[] }) {
         <span className="w-24 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
           Status
         </span>
-        <span className="w-28 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">
+        <span className="hidden w-28 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
           Last check
         </span>
         {/* Spacer for row actions column — keeps header aligned */}
-        <div className="w-[152px]" />
+        <div className="hidden w-[152px] sm:block" />
       </div>
 
       {/* ─── Service rows ─── */}
@@ -149,14 +164,14 @@ export function ServicesLiveList({ initial }: { initial: ServiceDto[] }) {
 
               {/* Last check time */}
               <span
-                className="w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400"
+                className="hidden w-28 text-right font-mono text-[11px] tabular-nums text-zinc-400 sm:block"
                 suppressHydrationWarning
               >
                 {relativeTime(s.lastCheckAt)}
               </span>
 
-              {/* Row actions — revealed on hover (Linear/Vercel pattern) */}
-              <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+              {/* Row actions — always visible on touch; hover-reveal on desktop (Linear/Vercel pattern) */}
+              <div className="opacity-100 sm:opacity-0 sm:transition-opacity sm:duration-150 sm:group-hover:opacity-100 focus-within:opacity-100">
                 <ServiceRowActions service={s} />
               </div>
             </li>
